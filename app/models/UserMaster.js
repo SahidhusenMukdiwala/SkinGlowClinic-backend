@@ -11,10 +11,6 @@ export const UserMaster = sequelize.define('user_master', {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
-  password: {
-    type: DataTypes.STRING(255),
-    allowNull: false,
-  },
   email: {
     type: DataTypes.STRING(100),
     allowNull: false,
@@ -22,6 +18,14 @@ export const UserMaster = sequelize.define('user_master', {
     validate: {
       isEmail: true,
     },
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+  },
+  mobile: {
+    type: DataTypes.STRING(15),
+    allowNull: false,
   },
   role: {
     type: DataTypes.TINYINT,

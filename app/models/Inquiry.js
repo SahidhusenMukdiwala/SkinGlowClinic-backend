@@ -20,11 +20,11 @@ export const Inquiry = sequelize.define('inquiries', {
   },
   phone: {
     type: DataTypes.STRING(20),
-    allowNull: true,
+    allowNull: false,
   },
   subject: {
     type: DataTypes.STRING(255),
-    allowNull: true,
+    allowNull: false,
   },
   message: {
     type: DataTypes.TEXT,

@@ -9,6 +9,8 @@ import { generalLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { successResponse, errorResponse } from './utils/responseHelper.js';
 
+import routes from './routes/index.js';
+
 const app = express();
 
 // Security Middleware
@@ -37,6 +39,9 @@ app.get('/api/health', (req, res) => {
     service: 'SkinGlow Clinic API',
   }, 'SkinGlow Clinic API is operational');
 });
+
+// Mount All Application API Routes
+app.use('/api', routes);
 
 // 404 Handler for Unhandled Routes
 app.use((req, res) => {

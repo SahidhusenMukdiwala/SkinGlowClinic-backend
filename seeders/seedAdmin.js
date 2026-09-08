@@ -11,6 +11,7 @@ export const seedAdmin = async () => {
         full_name: 'Dr. Aisha Sharma (Super Admin)',
         email: 'admin@skinglow.com',
         password: hashedPassword,
+        mobile: '+91 9173185200',
         role: 0, // Super Admin
       });
       logger.info(' Default admin user created: admin@skinglow.com / Admin@123');
