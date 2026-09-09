@@ -16,3 +16,92 @@ export const createInquiry = async (data) => {
 
   return inquiry;
 };
+
+/**
+ * Retrieve paginated inquiries for admin triage with read status and keyword search
+ */
+export const getAdminInquiries = async ({
+  page = 1,
+  limit = 10,
+  is_read,
+  search,
+}) => {
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+  const offset = (pageNum - 1) * limitNum;
+
+  const where = {};
+
+  if (is_read !== undefined && is_read !== null && is_read !== '' && is_read !== 'all') {
+    where.is_read = parseInt(is_read, 10);
+  }
+
+  if (search && search.trim()) {
+    const term = `%${search.trim()}%`;
+    where[Op.or] = [
+      { name: { [Op.like]: term } },
+      { email: { [Op.like]: term } },
+      { phone: { [Op.like]: term } },
+      { subject: { [Op.like]: term } },
+    ];
+  }
+
+  const { count, rows } = await Inquiry.findAndCountAll({
+    where,
+    limit: limitNum,
+    offset,
+    order: [['createdAt', 'DESC']],
+  });
+
+  return {
+    inquiries: rows,
+    total: count,
+    totalPages: Math.ceil(count / limitNum),
+    currentPage: pageNum,
+    limit: limitNum,
+  };
+};
+
+/**
+ * Get inquiry by ID
+ */
+export const getInquiryById = async (id) => {
+  const inquiry = await Inquiry.findByPk(id);
+  if (!inquiry) {
+    const error = new Error('Inquiry not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  return inquiry;
+};
+
+/**
+ * Update inquiry read status
+ */
+export const updateInquiryReadStatus = async (id, is_read = 1) => {
+  const inquiry = await Inquiry.findByPk(id);
+  if (!inquiry) {
+    const error = new Error('Inquiry not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await inquiry.update({ is_read: parseInt(is_read, 10) });
+  return inquiry;
+};
+
+/**
+ * Delete inquiry
+ */
+export const deleteInquiry = async (id) => {
+  const inquiry = await Inquiry.findByPk(id);
+  if (!inquiry) {
+    const error = new Error('Inquiry not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await inquiry.destroy();
+  return { id: parseInt(id, 10), message: 'Inquiry deleted successfully' };
+};
+

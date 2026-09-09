@@ -26,3 +26,37 @@ export const getMe = async (req, res, next) => {
     next(error);
   }
 };
+
+export const refreshToken = async (req, res, next) => {
+  try {
+    const token =
+      req.headers['refreshtoken'] ||
+      req.headers['refresh-token'] ||
+      req.body?.refresh_token ||
+      req.body?.refreshToken ||
+      req.query?.refreshToken;
+
+    const result = await authService.refreshAccessToken(token);
+    return successResponse(res, result, 'Token refreshed successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const logout = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization;
+    const refreshToken =
+      req.headers['refreshtoken'] ||
+      req.headers['refresh-token'] ||
+      req.body?.refresh_token ||
+      req.body?.refreshToken;
+    const userId = req.user?.id || req.body?.id;
+
+    const result = await authService.logoutAdmin({ userId, token, refreshToken });
+    return successResponse(res, result, 'Logged out successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
