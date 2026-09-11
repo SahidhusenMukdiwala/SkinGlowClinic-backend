@@ -40,7 +40,7 @@ export const getDashboardStats = async () => {
         {
           model: Treatment,
           as: 'treatment',
-          attributes: ['id', 'title', 'slug', 'category'],
+          attributes: ['id', 'title', 'slug', 'category_id'],
         },
       ],
     }),

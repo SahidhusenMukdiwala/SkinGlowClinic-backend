@@ -1,3 +1,4 @@
+import { Op } from 'sequelize';
 import { Inquiry } from '../models/index.js';
 import { sendInquiryNotification } from '../utils/email.js';
 

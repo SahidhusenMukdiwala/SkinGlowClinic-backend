@@ -12,9 +12,9 @@ export const inquirySchema = Joi.object({
     'string.email': 'Please enter a valid email address.',
     'any.required': 'Email address is required.',
   }),
-  phone: Joi.string().trim().pattern(/^(\+91\s)?[0-9]{10}$/).required().messages({
+  phone: Joi.string().trim().pattern(/^(\+?[0-9]{1,4}[\s-]?)?[0-9]{10}$/).required().messages({
     'string.empty': 'Please enter your phone number.',
-    'string.pattern.base': 'Please enter a valid 10-digit phone number (e.g. +91 9578412035).',
+    'string.pattern.base': 'Please enter a valid 10-digit phone number (e.g., 9820123456 or +91 9820123456).',
     'any.required': 'Phone number is required.',
   }),
   subject: Joi.string().trim().min(2).max(200).required().messages({

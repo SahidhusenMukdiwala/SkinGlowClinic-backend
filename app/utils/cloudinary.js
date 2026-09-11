@@ -1,4 +1,4 @@
-import { v2 as cloudinary } from 'cloudinary';
+  import { v2 as cloudinary } from 'cloudinary';
 import { env } from '../config/env.js';
 import { logger } from './logger.js';
 
@@ -16,6 +16,28 @@ cloudinary.config({
  * @returns {Promise<{ secure_url: string, public_id: string }>}
  */
 export const uploadBufferToCloudinary = (buffer, folder = 'skinglowclinic/general', options = {}) => {
+  // Graceful fallback for local development if Cloudinary credentials are placeholder
+  const isMockCredentials =
+    !env.CLOUDINARY.API_KEY ||
+    env.CLOUDINARY.API_KEY === 'your_api_key' ||
+    env.CLOUDINARY.API_SECRET === 'your_api_secret';
+
+  if (isMockCredentials) {
+    logger.warn('Cloudinary credentials not set or using placeholders. Using high-quality skincare asset URL for local dev.');
+    const sampleImages = [
+      'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1584297091622-af8e5bd80b13?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?auto=format&fit=crop&w=1000&q=80',
+    ];
+    const picked = sampleImages[Math.floor(Math.random() * sampleImages.length)];
+    return Promise.resolve({
+      secure_url: picked,
+      public_id: `mock_${Date.now()}`,
+    });
+  }
+
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -28,6 +50,13 @@ export const uploadBufferToCloudinary = (buffer, folder = 'skinglowclinic/genera
       (error, result) => {
         if (error) {
           logger.error('Cloudinary upload error:', error);
+          if (env.NODE_ENV !== 'production') {
+            logger.warn('Falling back to placeholder image in non-production mode.');
+            return resolve({
+              secure_url: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1000&q=80',
+              public_id: `fallback_${Date.now()}`,
+            });
+          }
           return reject(error);
         }
         resolve({

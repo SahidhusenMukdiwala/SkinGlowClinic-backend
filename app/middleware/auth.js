@@ -18,15 +18,28 @@ export const authenticate = async (req, res, next) => {
       return errorResponse(res, 'Invalid or expired token.', 401);
     }
 
-    const user = await UserMaster.findByPk(decoded.id, {
-      attributes: { exclude: ['password'] },
-    });
+    const [user, session] = await Promise.all([
+      UserMaster.findByPk(decoded.id, {
+        attributes: { exclude: ['password'] },
+      }),
+      SessionMaster.findOne({
+        where: {
+          access_token: token,
+          user_id: decoded.id,
+        },
+      }),
+    ]);
 
     if (!user) {
       return errorResponse(res, 'User no longer exists.', 401);
     }
 
+    if (!session) {
+      return errorResponse(res, 'Session has been revoked or logged out. Please log in again.', 401);
+    }
+
     req.user = user;
+    req.session = session;
     req.token = token;
     next();
   } catch (error) {

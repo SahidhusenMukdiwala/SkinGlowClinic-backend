@@ -5,7 +5,7 @@ const initialTreatments = [
   {
     title: 'HydraFacial Elite MD',
     slug: 'hydrafacial-elite-md',
-    category: 1, // Skin
+    category_id: 1, // Skin
     duration: '45-60 mins',
     display_order: 1,
     is_active: 1,
@@ -25,11 +25,11 @@ Recommended for patients battling dullness, congested pores, uneven texture, fin
   {
     title: 'Advanced Medical Chemical Peels',
     slug: 'medical-chemical-peels',
-    category: 1, // Skin
+    category_id: 1, // Skin
     duration: '30-45 mins',
     display_order: 2,
     is_active: 1,
-    image_url: 'https://images.unsplash.com/photo-1512290900672-1a0149021873?auto=format&fit=crop&w=1000&q=80',
+    image_url: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=1000&q=80',
     short_description: 'Tailored AHA/BHA and TCA clinical peels designed to resurface hyperpigmentation, active acne, and stubborn sun spots.',
     full_description: `Our dermatologist-supervised chemical peeling protocols utilize bespoke blends of glycolic acid, salicylic acid, lactic acid, and modified TCA to stimulate regulated cellular turnover and collagen renewal.
 
@@ -43,7 +43,7 @@ Expect mild tingling during application followed by subtle flaking over 3 to 5 d
   {
     title: 'PRP Hair Follicle Bio-Restoration',
     slug: 'prp-hair-restoration',
-    category: 2, // Hair
+    category_id: 2, // Hair
     duration: '60 mins',
     display_order: 3,
     is_active: 1,
@@ -62,7 +62,7 @@ A series of 3 to 4 monthly sessions followed by quarterly maintenance ensures pr
   {
     title: 'Low-Level Laser Hair Stimulation (LLLT)',
     slug: 'laser-hair-stimulation',
-    category: 2, // Hair
+    category_id: 2, // Hair
     duration: '45 mins',
     display_order: 4,
     is_active: 1,
@@ -77,7 +77,7 @@ A series of 3 to 4 monthly sessions followed by quarterly maintenance ensures pr
   {
     title: 'Triple-Wavelength Laser Hair Reduction',
     slug: 'laser-hair-reduction',
-    category: 3, // Laser
+    category_id: 3, // Laser
     duration: '30-60 mins',
     display_order: 5,
     is_active: 1,
@@ -93,7 +93,7 @@ A series of 3 to 4 monthly sessions followed by quarterly maintenance ensures pr
   {
     title: 'Carbon Spectra Laser Toning (Hollywood Peel)',
     slug: 'carbon-spectra-toning',
-    category: 3, // Laser
+    category_id: 3, // Laser
     duration: '45 mins',
     display_order: 6,
     is_active: 1,
@@ -106,7 +106,7 @@ When the Q-switched laser pulses over the skin, the carbon particles instantly v
   {
     title: 'Botox & Dysport Dynamic Wrinkle Smoothing',
     slug: 'botox-wrinkle-smoothing',
-    category: 4, // Anti-Aging
+    category_id: 4, // Anti-Aging
     duration: '30 mins',
     display_order: 7,
     is_active: 1,
@@ -125,7 +125,7 @@ Results emerge within 4 to 7 days, maintaining a refreshed, expressive appearanc
   {
     title: 'Hyaluronic Dermal Fillers & Facial Sculpting',
     slug: 'dermal-fillers-sculpting',
-    category: 4, // Anti-Aging
+    category_id: 4, // Anti-Aging
     duration: '45-60 mins',
     display_order: 8,
     is_active: 1,
@@ -138,7 +138,7 @@ We adhere strictly to natural facial proportions — enhancing high cheek contou
   {
     title: 'CryoSculpt Non-Invasive Body Contouring',
     slug: 'cryosculpt-body-contouring',
-    category: 5, // Body
+    category_id: 5, // Body
     duration: '60 mins',
     display_order: 9,
     is_active: 1,

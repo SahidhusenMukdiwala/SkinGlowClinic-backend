@@ -1,12 +1,24 @@
 import rateLimit from 'express-rate-limit';
 
-// Standard general API limiter: 100 requests per 15 minutes
+// Standard general API limiter: 600 requests per 15 minutes (ensures smooth browsing across tabs)
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 600,
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Admin dashboard limiter: 1200 requests per 15 minutes
+export const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1200,
+  message: {
+    success: false,
+    message: 'Too many admin requests. Please wait a moment.',
   },
   standardHeaders: true,
   legacyHeaders: false,

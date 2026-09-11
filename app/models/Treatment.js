@@ -16,9 +16,13 @@ export const Treatment = sequelize.define('treatments', {
     allowNull: false,
     unique: true,
   },
-  category: {
-    type: DataTypes.TINYINT.UNSIGNED,
-    allowNull: false, // 1=Skin, 2=Hair, 3=Laser, 4=Anti-Aging, 5=Body
+  category_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'categories',
+      key: 'id',
+    },
   },
   short_description: {
     type: DataTypes.TEXT,

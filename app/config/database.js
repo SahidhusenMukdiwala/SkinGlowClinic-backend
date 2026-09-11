@@ -9,7 +9,8 @@ export const sequelize = new Sequelize(
     host: env.DB.HOST,
     port: env.DB.PORT,
     dialect: 'mysql',
-    logging: env.NODE_ENV === 'development' ? (msg) => console.log(`[Sequelize] ${msg}`) : false,
+    // logging: env.NODE_ENV === 'development' ? (msg) => console.log(`[Sequelize] ${msg}`) : false,
+    logging: false,
     pool: {
       max: 10,
       min: 0,

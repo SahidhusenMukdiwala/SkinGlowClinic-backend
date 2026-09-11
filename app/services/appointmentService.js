@@ -133,7 +133,7 @@ export const createAppointment = async (data) => {
         title: treatment.title,
         slug: treatment.slug,
         duration: treatment.duration,
-        category: treatment.category,
+        category_id: treatment.category_id,
       },
       createdAt: appointment.createdAt,
     };
@@ -202,7 +202,7 @@ export const getAdminAppointments = async ({
       {
         model: Treatment,
         as: 'treatment',
-        attributes: ['id', 'title', 'slug', 'category', 'duration'],
+        attributes: ['id', 'title', 'slug', 'category_id', 'duration'],
       },
     ],
   });
@@ -230,7 +230,7 @@ export const getAppointmentById = async (id) => {
       {
         model: Treatment,
         as: 'treatment',
-        attributes: ['id', 'title', 'slug', 'category', 'duration'],
+        attributes: ['id', 'title', 'slug', 'category_id', 'duration'],
       },
     ],
   });
