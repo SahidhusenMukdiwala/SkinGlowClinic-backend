@@ -78,6 +78,86 @@ export const loginAdmin = async ({ identifier, password, ip }) => {
   };
 };
 
+export const registerCustomer = async ({ full_name, email, mobile, password, ip }) => {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanMobile = (mobile || '').trim();
+  const digitsOnly = cleanMobile.replace(/\D/g, '');
+
+  // Check if email already exists
+  const existingEmail = await UserMaster.findOne({
+    where: { email: cleanEmail },
+  });
+  if (existingEmail) {
+    const error = new Error('An account with this email address already exists.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // Check if mobile already exists
+  const mobileWhere = [{ mobile: cleanMobile }];
+  if (digitsOnly.length >= 10) {
+    mobileWhere.push({ mobile: { [Op.like]: `%${digitsOnly.slice(-10)}%` } });
+  }
+  const existingMobile = await UserMaster.findOne({
+    where: { [Op.or]: mobileWhere },
+  });
+  if (existingMobile) {
+    const error = new Error('An account with this mobile number already exists.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // Hash password
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  // Create user with customer role 2
+  const user = await UserMaster.create({
+    full_name: full_name.trim(),
+    email: cleanEmail,
+    mobile: cleanMobile,
+    password: hashedPassword,
+    role: 2, // 2 = Customer / Patient
+  });
+
+  // Generate tokens
+  const accessToken = jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      mobile: user.mobile,
+      role: user.role,
+    },
+    env.JWT.SECRET,
+    { expiresIn: env.JWT.EXPIRES_IN }
+  );
+
+  const refreshToken = jwt.sign(
+    { id: user.id },
+    env.JWT.REFRESH_SECRET,
+    { expiresIn: env.JWT.REFRESH_EXPIRES_IN }
+  );
+
+  // Track session in session_master
+  await SessionMaster.create({
+    user_id: user.id,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    ip: ip || '127.0.0.1',
+  });
+
+  return {
+    user: {
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      mobile: user.mobile,
+      role: user.role,
+    },
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  };
+};
+
 export const getAdminProfile = async (userId) => {
   return UserMaster.findByPk(userId, {
     attributes: ['id', 'full_name', 'email', 'mobile', 'role', 'createdAt'],

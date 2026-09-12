@@ -3,8 +3,8 @@ import { successResponse, errorResponse, createdResponse } from '../utils/respon
 
 export const getAllTreatments = async (req, res, next) => {
   try {
-    const { category } = req.query;
-    const treatments = await treatmentService.getActiveTreatments(category);
+    const { category, search } = req.query;
+    const treatments = await treatmentService.getActiveTreatments(category, search);
     return successResponse(res, treatments, 'Treatments retrieved successfully');
   } catch (error) {
     next(error);

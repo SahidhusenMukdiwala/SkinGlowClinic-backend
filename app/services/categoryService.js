@@ -45,6 +45,8 @@ export const getAdminCategories = async (query = {}) => {
         model: Treatment,
         as: 'treatments',
         attributes: [],
+        where: { is_delete: 0 },
+        required: false,
       },
     ],
     group: ['categories.id'],
@@ -137,9 +139,9 @@ export const updateCategory = async (id, data) => {
 export const deleteCategory = async (id) => {
   const category = await getCategoryById(id);
 
-  // Check if any treatments currently link to this category
+  // Check if any active non-deleted treatments currently link to this category
   const linkedTreatmentsCount = await Treatment.count({
-    where: { category_id: id },
+    where: { category_id: id, is_delete: 0 },
   });
 
   if (linkedTreatmentsCount > 0) {

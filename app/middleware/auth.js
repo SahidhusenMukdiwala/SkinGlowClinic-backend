@@ -46,3 +46,17 @@ export const authenticate = async (req, res, next) => {
     return errorResponse(res, 'Authentication failed.', 401);
   }
 };
+
+export const requireAdmin = (req, res, next) => {
+  if (!req.user) {
+    return errorResponse(res, 'Authentication required.', 401);
+  }
+
+  // Allow Super Admin (0) and Admin (1)
+  if (req.user.role !== 0 && req.user.role !== 1) {
+    return errorResponse(res, 'Access denied. Administrative privileges required.', 403);
+  }
+
+  next();
+};
+

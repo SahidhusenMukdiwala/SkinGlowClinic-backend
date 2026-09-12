@@ -18,6 +18,25 @@ export const login = async (req, res, next) => {
   }
 };
 
+export const register = async (req, res, next) => {
+  try {
+    const { full_name, email, mobile, password } = req.body;
+
+    const result = await authService.registerCustomer({
+      full_name,
+      email,
+      mobile,
+      password,
+      ip: req.ip || req.connection?.remoteAddress,
+    });
+
+    return successResponse(res, result, 'Account registered successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 export const getMe = async (req, res, next) => {
   try {
     const profile = await authService.getAdminProfile(req.user.id);

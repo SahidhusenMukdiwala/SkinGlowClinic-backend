@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireAdmin } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { validate } from '../middleware/validate.js';
 
@@ -21,8 +21,8 @@ import { updateSettingsSchema } from '../validators/settings.validator.js';
 
 const router = Router();
 
-// Enforce JWT authentication on all admin endpoints
-router.use(authenticate);
+// Enforce JWT authentication and Admin role (0 or 1) on all admin endpoints
+router.use(authenticate, requireAdmin);
 
 // --- Dashboard ---
 router.get('/dashboard/stats', dashboardController.getStats);

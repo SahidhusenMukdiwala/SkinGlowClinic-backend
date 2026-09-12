@@ -1,6 +1,10 @@
 import { Op } from 'sequelize';
 import { sequelize, Appointment, Treatment } from '../models/index.js';
-import { sendAppointmentConfirmation, sendAppointmentAlert } from '../utils/email.js';
+import { 
+  sendAppointmentConfirmation, 
+  sendAppointmentAlert,
+  sendAppointmentCancellation 
+} from '../utils/email.js';
 
 /**
  * Retrieve all booked time slots for a given date (YYYY-MM-DD)
@@ -25,6 +29,7 @@ export const getBookedSlots = async (dateStr) => {
       status: {
         [Op.in]: [0, 1], // 0 = Pending, 1 = Confirmed (active reservations)
       },
+      is_delete: 0,
     },
     attributes: ['preferred_date_time'],
   });
@@ -55,8 +60,14 @@ export const getBookedSlots = async (dateStr) => {
  */
 export const createAppointment = async (data) => {
   // 1. Verify treatment exists
-  const treatment = await Treatment.findByPk(data.treatment_id);
-  if (!treatment || !treatment.is_active) {
+  const treatment = await Treatment.findOne({
+    where: {
+      id: data.treatment_id,
+      is_active: 1,
+      is_delete: 0,
+    },
+  });
+  if (!treatment) {
     const error = new Error('The selected treatment is either unavailable or does not exist.');
     error.statusCode = 404;
     throw error;
@@ -90,6 +101,7 @@ export const createAppointment = async (data) => {
         status: {
           [Op.in]: [0, 1], // 0 = Pending, 1 = Confirmed
         },
+        is_delete: 0,
       },
       transaction: t,
       lock: t.LOCK.UPDATE, // Enforces exclusive lock in MySQL
@@ -110,18 +122,20 @@ export const createAppointment = async (data) => {
       preferred_date_time: appointmentDate,
       message: data.message ? data.message.trim() : '',
       status: 0, // Pending
+      is_delete: 0,
       admin_notes: null,
     }, { transaction: t });
 
-    // Asynchronously dispatch emails only after transaction commits successfully
+    // Asynchronously dispatch email to patient only
     t.afterCommit(() => {
       sendAppointmentConfirmation({ appointment, treatment }).catch(() => {});
-      sendAppointmentAlert({ appointment, treatment }).catch(() => {});
+      // Admin alert disabled as per requirement:
+      // sendAppointmentAlert({ appointment, treatment }).catch(() => {});
     });
 
     return {
       id: appointment.id,
-      reference_id: `SG-${String(appointment.id).padStart(5, '0')}`,
+      reference_id: (appointment.id),
       patient_name: appointment.patient_name,
       email: appointment.email,
       phone: appointment.phone,
@@ -156,7 +170,7 @@ export const getAdminAppointments = async ({
   const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
   const offset = (pageNum - 1) * limitNum;
 
-  const where = {};
+  const where = { is_delete: 0 };
 
   // Status filtering (0: Pending, 1: Confirmed, 2: Completed, 3: Cancelled)
   if (status !== undefined && status !== null && status !== '' && status !== 'all') {
@@ -209,7 +223,7 @@ export const getAdminAppointments = async ({
 
   const formattedRows = rows.map((appt) => ({
     ...appt.toJSON(),
-    reference_id: `SG-${String(appt.id).padStart(5, '0')}`,
+    reference_id: appt.id,
   }));
 
   return {
@@ -225,7 +239,11 @@ export const getAdminAppointments = async ({
  * Get single appointment by ID
  */
 export const getAppointmentById = async (id) => {
-  const appointment = await Appointment.findByPk(id, {
+  const appointment = await Appointment.findOne({
+    where: {
+      id,
+      is_delete: 0,
+    },
     include: [
       {
         model: Treatment,
@@ -243,7 +261,7 @@ export const getAppointmentById = async (id) => {
 
   return {
     ...appointment.toJSON(),
-    reference_id: `SG-${String(appointment.id).padStart(5, '0')}`,
+    reference_id: appointment.id,
   };
 };
 
@@ -251,38 +269,75 @@ export const getAppointmentById = async (id) => {
  * Update appointment status and/or admin notes
  */
 export const updateAppointment = async (id, data) => {
-  const appointment = await Appointment.findByPk(id);
+  const appointment = await Appointment.findOne({
+    where: {
+      id,
+      is_delete: 0,
+    },
+    include: [
+      {
+        model: Treatment,
+        as: 'treatment',
+        attributes: ['id', 'title', 'slug', 'category_id', 'duration'],
+      },
+    ],
+  });
   if (!appointment) {
     const error = new Error('Appointment not found');
     error.statusCode = 404;
     throw error;
   }
 
+  const previousStatus = appointment.status;
   const updates = {};
   if (data.status !== undefined && data.status !== null) {
     updates.status = parseInt(data.status, 10);
   }
+
+  const reason = (data.cancellation_reason || '').trim();
+
   if (data.admin_notes !== undefined) {
     updates.admin_notes = data.admin_notes;
+  } else if (reason && updates.status === 3) {
+    const cancelNote = `[Cancellation Reason]: ${reason}`;
+    updates.admin_notes = appointment.admin_notes
+      ? `${appointment.admin_notes}\n${cancelNote}`
+      : cancelNote;
   }
 
   await appointment.update(updates);
+
+  // If status changed to 3 (Cancelled), dispatch email with reason to user
+  if (updates.status === 3 && previousStatus !== 3) {
+    sendAppointmentCancellation({
+      appointment,
+      treatment: appointment.treatment,
+      reason: reason || updates.admin_notes || appointment.admin_notes,
+    }).catch((err) => {
+      console.error('Failed to send cancellation email:', err);
+    });
+  }
 
   return getAppointmentById(id);
 };
 
 /**
- * Delete an appointment
+ * Delete an appointment (Soft delete by setting is_delete = 1)
  */
 export const deleteAppointment = async (id) => {
-  const appointment = await Appointment.findByPk(id);
+  const appointment = await Appointment.findOne({
+    where: {
+      id,
+      is_delete: 0,
+    },
+  });
   if (!appointment) {
     const error = new Error('Appointment not found');
     error.statusCode = 404;
     throw error;
   }
 
-  await appointment.destroy();
-  return { id: parseInt(id, 10), message: 'Appointment deleted successfully' };
+  await appointment.update({ is_delete: 1 });
+  return { id: parseInt(id, 10), softDeleted: true, message: 'Appointment deleted successfully' };
 };
 

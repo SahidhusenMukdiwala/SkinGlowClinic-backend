@@ -40,6 +40,11 @@ export const Treatment = sequelize.define('treatments', {
     type: DataTypes.STRING(50),
     allowNull: true,
   },
+  is_delete: {
+    type: DataTypes.TINYINT,
+    allowNull: true,
+    defaultValue: 0, // 0 = Active/Not deleted, 1 = Soft deleted
+  },
   is_active: {
     type: DataTypes.TINYINT,
     allowNull: false,

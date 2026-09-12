@@ -39,6 +39,11 @@ export const Appointment = sequelize.define('appointments', {
     allowNull: true,
     defaultValue: 0, // 0 = Pending, 1 = Confirmed, 2 = Completed, 3 = Cancelled
   },
+  is_delete: {
+    type: DataTypes.TINYINT,
+    allowNull: true,
+    defaultValue: 0, // 0 = Not deleted, 1 = Soft deleted
+  },
   admin_notes: {
     type: DataTypes.TEXT,
     allowNull: true,

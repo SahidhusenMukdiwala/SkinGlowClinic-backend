@@ -14,13 +14,22 @@ const generateSlug = (text) => {
     .replace(/^-+|-+$/g, '');
 };
 
-export const getActiveTreatments = async (category) => {
-  const whereClause = { is_active: 1 };
-  if (category) {
+export const getActiveTreatments = async (category, search) => {
+  const whereClause = { is_active: 1, is_delete: 0 };
+  if (category && category !== 'all' && category !== '0') {
     const parsedCategory = parseInt(category, 10);
     if (!isNaN(parsedCategory) && parsedCategory > 0) {
       whereClause.category_id = parsedCategory;
     }
+  }
+
+  if (search && typeof search === 'string' && search.trim()) {
+    const term = `%${search.trim()}%`;
+    whereClause[Op.or] = [
+      { title: { [Op.like]: term } },
+      { short_description: { [Op.like]: term } },
+      { full_description: { [Op.like]: term } },
+    ];
   }
 
   return Treatment.findAll({
@@ -55,6 +64,7 @@ export const getTreatmentBySlug = async (slug) => {
     where: {
       slug,
       is_active: 1,
+      is_delete: 0,
     },
     include: [
       {
@@ -75,6 +85,7 @@ export const getTreatmentBySlug = async (slug) => {
       id: { [Op.ne]: treatment.id },
       category_id: treatment.category_id,
       is_active: 1,
+      is_delete: 0,
     },
     attributes: ['id', 'title', 'slug', 'category_id', 'short_description', 'image_url', 'duration'],
     include: [
@@ -109,7 +120,7 @@ export const getAdminTreatments = async ({
   const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
   const offset = (pageNum - 1) * limitNum;
 
-  const where = {};
+  const where = { is_delete: 0 };
   const filterCat = category_id || category;
 
   if (filterCat !== undefined && filterCat !== null && filterCat !== '' && filterCat !== 'all') {
@@ -159,7 +170,11 @@ export const getAdminTreatments = async ({
  * Get single treatment by ID
  */
 export const getTreatmentById = async (id) => {
-  const treatment = await Treatment.findByPk(id, {
+  const treatment = await Treatment.findOne({
+    where: {
+      id,
+      is_delete: 0,
+    },
     include: [
       {
         model: Category,
@@ -205,6 +220,7 @@ export const createTreatment = async (data, file) => {
     full_description: data.full_description ? data.full_description.trim() : null,
     image_url: imageUrl,
     duration: data.duration ? data.duration.trim() : null,
+    is_delete: 0,
     is_active: data.is_active !== undefined ? parseInt(data.is_active, 10) : 1,
     display_order: data.display_order !== undefined ? parseInt(data.display_order, 10) : 0,
   });
@@ -216,7 +232,9 @@ export const createTreatment = async (data, file) => {
  * Update an existing treatment
  */
 export const updateTreatment = async (id, data, file) => {
-  const treatment = await Treatment.findByPk(id);
+  const treatment = await Treatment.findOne({
+    where: { id, is_delete: 0 },
+  });
   if (!treatment) {
     const error = new Error(`Treatment not found with ID: ${id}`);
     error.statusCode = 404;
@@ -264,32 +282,23 @@ export const updateTreatment = async (id, data, file) => {
 };
 
 /**
- * Delete a treatment (Soft delete if booked in appointments, otherwise hard delete)
+ * Delete a treatment (Soft delete by setting is_delete = 1)
  */
 export const deleteTreatment = async (id) => {
-  const treatment = await Treatment.findByPk(id);
+  const treatment = await Treatment.findOne({
+    where: { id, is_delete: 0 },
+  });
   if (!treatment) {
     const error = new Error(`Treatment not found with ID: ${id}`);
     error.statusCode = 404;
     throw error;
   }
 
-  // Check if any appointments reference this treatment
-  const appointmentCount = await Appointment.count({ where: { treatment_id: id } });
-  if (appointmentCount > 0) {
-    // Soft delete / deactivate to maintain referential integrity
-    await treatment.update({ is_active: 0 });
-    return {
-      id: treatment.id,
-      softDeleted: true,
-      message: 'Treatment has existing patient appointments and was marked inactive instead of permanently deleted.',
-    };
-  }
+  await treatment.update({ is_delete: 1, is_active: 0 });
 
-  await treatment.destroy();
   return {
-    id: parseInt(id, 10),
-    softDeleted: false,
-    message: 'Treatment deleted permanently.',
+    id: treatment.id,
+    softDeleted: true,
+    message: 'Treatment deleted successfully.',
   };
 };

@@ -30,7 +30,7 @@ export const UserMaster = sequelize.define('user_master', {
   role: {
     type: DataTypes.TINYINT,
     allowNull: true,
-    defaultValue: 1, // 0 = Super Admin, 1 = Admin
+    defaultValue: 2, // 0 = Super Admin, 1 = Admin, 2 = Customer / Patient
   },
 }, {
   tableName: 'user_master',

@@ -123,17 +123,17 @@ export const sendAppointmentConfirmation = async ({ appointment, treatment }) =>
     const mailOptions = {
       from: getFromEmail(),
       to: safeEmail,
-      subject: `Appointment Scheduled: ${treatmentTitle} at SkinGlow Clinic`,
+      subject: `Appointment Request Received (Approval Pending): ${treatmentTitle} at SkinGlow Clinic`,
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a2e; border: 1px solid #e0d7c7; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
           <div style="background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%); padding: 32px 28px; text-align: center; color: #ffffff;">
             <h1 style="margin: 0; font-size: 24px; letter-spacing: 0.5px; color: #c9a96e;">SkinGlow Clinic</h1>
-            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Appointment Booking Received</p>
+            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Appointment Request Received (Approval Pending)</p>
           </div>
           <div style="padding: 28px;">
             <p style="font-size: 16px; margin: 0 0 16px 0;">Dear <strong>${safePatientName}</strong>,</p>
             <p style="font-size: 14px; color: #4b5563; line-height: 1.6; margin-bottom: 24px;">
-              Thank you for choosing SkinGlow Clinic. We have successfully registered your appointment request. Our clinical coordinator will review and confirm your scheduled slot.
+              Thank you for choosing SkinGlow Clinic. We have successfully registered your appointment request. Your booking is currently <strong>Approval Pending</strong> while our clinical coordinator reviews doctor availability and finalizes your scheduled slot. We will notify you as soon as it is approved.
             </p>
             
             <div style="background-color: #fdfbf7; border: 1px solid #f0e6d6; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
@@ -151,7 +151,11 @@ export const sendAppointmentConfirmation = async ({ appointment, treatment }) =>
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #6b7280;"><strong>Status:</strong></td>
-                  <td style="padding: 6px 0; color: #10b981; font-weight: 600;">Confirmed / Scheduled</td>
+                  <td style="padding: 6px 0;">
+                    <span style="background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 13px; border: 1px solid #fde68a;">
+                      Approval Pending
+                    </span>
+                  </td>
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #6b7280;"><strong>Phone:</strong></td>
@@ -237,5 +241,90 @@ export const sendAppointmentAlert = async ({ appointment, treatment }) => {
     logger.info(`Clinic staff alert email sent for appointment #${appointment.id}`);
   } catch (error) {
     logger.error('Failed to send clinic staff appointment alert email:', error.message);
+  }
+};
+
+export const sendAppointmentCancellation = async ({ appointment, treatment, reason }) => {
+  try {
+    const treatmentTitle = escapeHtml(treatment?.title || 'Clinical Consultation');
+    const formattedDate = formatDateTime(appointment.preferred_date_time);
+    const safePatientName = escapeHtml(appointment.patient_name);
+    const safeEmail = escapeHtml(appointment.email);
+    const safeReason = escapeHtml(reason || 'Operational schedule adjustment or doctor unavailability');
+    const mailer = getTransporter();
+
+    if (!mailer) {
+      logger.info(`[Mock Email] Appointment cancellation dispatched to patient: ${safePatientName} <${safeEmail}> for "${treatmentTitle}". Reason: ${safeReason}`);
+      return;
+    }
+
+    const mailOptions = {
+      from: getFromEmail(),
+      to: safeEmail,
+      subject: `Notice of Cancellation: Appointment for ${treatmentTitle} at SkinGlow Clinic (#APPT-${appointment.id})`,
+      html: `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a2e; border: 1px solid #e0d7c7; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+          <div style="background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%); padding: 32px 28px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 0.5px; color: #fecaca;">SkinGlow Clinic</h1>
+            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Appointment Cancellation Notice</p>
+          </div>
+          <div style="padding: 28px;">
+            <p style="font-size: 16px; margin: 0 0 16px 0;">Dear <strong>${safePatientName}</strong>,</p>
+            <p style="font-size: 14px; color: #4b5563; line-height: 1.6; margin-bottom: 20px;">
+              We regret to inform you that your upcoming clinical consultation at SkinGlow Clinic has been <strong>cancelled</strong>.
+            </p>
+            
+            <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; border-radius: 8px; padding: 18px; margin-bottom: 24px;">
+              <h3 style="margin: 0 0 8px 0; color: #991b1b; font-size: 15px;">
+                Reason for Cancellation:
+              </h3>
+              <p style="margin: 0; font-size: 14px; color: #7f1d1d; line-height: 1.5; font-weight: 500;">
+                ${safeReason}
+              </p>
+            </div>
+
+            <div style="background-color: #fdfbf7; border: 1px solid #f0e6d6; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <h4 style="margin: 0 0 12px 0; color: #1a1a2e; font-size: 15px; border-bottom: 1px solid #e5dac9; padding-bottom: 8px;">
+                Cancelled Appointment Details (Ref: #APPT-${appointment.id})
+              </h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; width: 140px;"><strong>Procedure:</strong></td>
+                  <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">${treatmentTitle}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;"><strong>Originally Scheduled:</strong></td>
+                  <td style="padding: 6px 0; color: #6b7280; text-decoration: line-through;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;"><strong>Status:</strong></td>
+                  <td style="padding: 6px 0;">
+                    <span style="background-color: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 13px; border: 1px solid #fca5a5;">
+                      Cancelled
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="border-left: 3px solid #c9a96e; padding: 12px 16px; background-color: #faf7f2; border-radius: 0 6px 6px 0; margin-bottom: 24px;">
+              <h4 style="margin: 0 0 6px 0; color: #1a1a2e; font-size: 14px;">Need to Reschedule?</h4>
+              <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.6;">
+                We sincerely apologize for any inconvenience caused. You may easily pick another convenient time slot directly on our website or by contacting our clinic helpline.
+              </p>
+            </div>
+
+            <p style="font-size: 13px; color: #6b7280; margin: 0 0 4px 0;">Clinic Helpline: <strong>+91 98765 43210</strong> • Email: contact@skinglow.com</p>
+            <p style="font-size: 13px; color: #6b7280; margin: 16px 0 4px 0;">Warm regards,</p>
+            <p style="font-size: 14px; font-weight: 600; color: #1a1a2e; margin: 0;">SkinGlow Aesthetic Clinic Team</p>
+          </div>
+        </div>
+      `,
+    };
+
+    await mailer.sendMail(mailOptions);
+    logger.info(`Appointment cancellation email dispatched to ${safeEmail} (Appt #${appointment.id})`);
+  } catch (error) {
+    logger.error('Failed to dispatch appointment cancellation email:', error.message);
   }
 };

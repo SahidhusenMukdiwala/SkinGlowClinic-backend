@@ -20,20 +20,22 @@ export const getDashboardStats = async () => {
     recentAppointments,
     recentInquiries,
   ] = await Promise.all([
-    Appointment.count(),
+    Appointment.count({ where: { is_delete: 0 } }),
     Appointment.count({
       where: {
         preferred_date_time: {
           [Op.between]: [todayStart, todayEnd],
         },
+        is_delete: 0,
       },
     }),
-    Appointment.count({ where: { status: 0 } }),
-    Appointment.count({ where: { status: 1 } }),
-    Appointment.count({ where: { status: 2 } }),
+    Appointment.count({ where: { status: 0, is_delete: 0 } }),
+    Appointment.count({ where: { status: 1, is_delete: 0 } }),
+    Appointment.count({ where: { status: 2, is_delete: 0 } }),
     Inquiry.count(),
     Inquiry.count({ where: { is_read: 0 } }),
     Appointment.findAll({
+      where: { is_delete: 0 },
       limit: 5,
       order: [['createdAt', 'DESC']],
       include: [
