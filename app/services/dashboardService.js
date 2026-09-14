@@ -32,8 +32,8 @@ export const getDashboardStats = async () => {
     Appointment.count({ where: { status: 0, is_delete: 0 } }),
     Appointment.count({ where: { status: 1, is_delete: 0 } }),
     Appointment.count({ where: { status: 2, is_delete: 0 } }),
-    Inquiry.count(),
-    Inquiry.count({ where: { is_read: 0 } }),
+    Inquiry.count({ where: { is_delete: 0 } }),
+    Inquiry.count({ where: { is_read: 0, is_delete: 0 } }),
     Appointment.findAll({
       where: { is_delete: 0 },
       limit: 5,
@@ -47,6 +47,7 @@ export const getDashboardStats = async () => {
       ],
     }),
     Inquiry.findAll({
+      where: { is_delete: 0 },
       limit: 5,
       order: [['createdAt', 'DESC']],
     }),

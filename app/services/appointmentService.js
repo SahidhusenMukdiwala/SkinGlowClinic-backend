@@ -2,6 +2,8 @@ import { Op } from 'sequelize';
 import { sequelize, Appointment, Treatment } from '../models/index.js';
 import { 
   sendAppointmentConfirmation, 
+  sendAppointmentConfirmed,
+  sendAppointmentCompleted,
   sendAppointmentAlert,
   sendAppointmentCancellation 
 } from '../utils/email.js';
@@ -308,15 +310,34 @@ export const updateAppointment = async (id, data) => {
 
   await appointment.update(updates);
 
-  // If status changed to 3 (Cancelled), dispatch email with reason to user
-  if (updates.status === 3 && previousStatus !== 3) {
-    sendAppointmentCancellation({
-      appointment,
-      treatment: appointment.treatment,
-      reason: reason || updates.admin_notes || appointment.admin_notes,
-    }).catch((err) => {
-      logger.error('Failed to send cancellation email:', err);
-    });
+  // Dispatch action-based notification email to patient on status transition
+  if (updates.status !== undefined && updates.status !== previousStatus) {
+    if (updates.status === 1) {
+      // Status = 1: Confirmed / Approved
+      sendAppointmentConfirmed({
+        appointment,
+        treatment: appointment.treatment,
+      }).catch((err) => {
+        logger.error('Failed to dispatch appointment confirmation email for #%s: %s', id, err.message);
+      });
+    } else if (updates.status === 2) {
+      // Status = 2: Completed
+      sendAppointmentCompleted({
+        appointment,
+        treatment: appointment.treatment,
+      }).catch((err) => {
+        logger.error('Failed to dispatch appointment completion email for #%s: %s', id, err.message);
+      });
+    } else if (updates.status === 3) {
+      // Status = 3: Cancelled
+      sendAppointmentCancellation({
+        appointment,
+        treatment: appointment.treatment,
+        reason: reason || updates.admin_notes || appointment.admin_notes,
+      }).catch((err) => {
+        logger.error('Failed to dispatch appointment cancellation email for #%s: %s', id, err.message);
+      });
+    }
   }
 
   return getAppointmentById(id);

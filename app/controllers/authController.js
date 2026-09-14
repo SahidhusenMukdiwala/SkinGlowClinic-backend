@@ -9,7 +9,7 @@ export const login = async (req, res, next) => {
     const result = await authService.loginAdmin({
       identifier: loginIdentifier,
       password,
-      ip: req.ip || req.connection?.remoteAddress,
+      ip: req.ip || req.socket?.remoteAddress,
     });
 
     return successResponse(res, result, 'Login successful');
@@ -27,7 +27,7 @@ export const register = async (req, res, next) => {
       email,
       mobile,
       password,
-      ip: req.ip || req.connection?.remoteAddress,
+      ip: req.ip || req.socket?.remoteAddress,
     });
 
     return successResponse(res, result, 'Account registered successfully', 201);

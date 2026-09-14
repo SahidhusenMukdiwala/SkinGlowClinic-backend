@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import winston from 'winston';
 import { env } from '../config/env.js';
 
@@ -27,6 +29,10 @@ export const logger = winston.createLogger({
 });
 
 if (env.NODE_ENV === 'production') {
-  logger.add(new winston.transports.File({ filename: 'logs/error.log', level: 'error' }));
-  logger.add(new winston.transports.File({ filename: 'logs/combined.log' }));
+  const logDir = 'logs';
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+  logger.add(new winston.transports.File({ filename: path.join(logDir, 'error.log'), level: 'error' }));
+  logger.add(new winston.transports.File({ filename: path.join(logDir, 'combined.log') }));
 }

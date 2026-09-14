@@ -13,13 +13,17 @@ export const corsOptions = {
       if (env.NODE_ENV !== 'production') {
         return callback(null, true);
       }
-      return callback(new Error('Origin header required in production'));
+      const error = new Error('Origin header required in production');
+      error.statusCode = 403;
+      return callback(error);
     }
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    const error = new Error(`Origin ${origin} not allowed by CORS`);
+    error.statusCode = 403;
+    return callback(error);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
