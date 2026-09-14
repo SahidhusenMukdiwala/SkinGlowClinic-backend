@@ -35,6 +35,11 @@ export const Inquiry = sequelize.define('inquiries', {
     allowNull: false,
     defaultValue: 0, // 0 = Unread, 1 = Read
   },
+  is_delete: {
+    type: DataTypes.TINYINT,
+    allowNull: true,
+    defaultValue: 0, // 0 = Active/Not deleted, 1 = Soft deleted
+  },
 }, {
   tableName: 'inquiries',
   timestamps: true,

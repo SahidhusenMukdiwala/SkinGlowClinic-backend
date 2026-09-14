@@ -32,6 +32,11 @@ export const Testimonial = sequelize.define('testimonials', {
     allowNull: true,
     defaultValue: 1, // 0 = Inactive, 1 = Active
   },
+  is_delete: {
+    type: DataTypes.TINYINT,
+    allowNull: true,
+    defaultValue: 0, // 0 = Active/Not deleted, 1 = Soft deleted
+  },
 }, {
   tableName: 'testimonials',
   timestamps: true,

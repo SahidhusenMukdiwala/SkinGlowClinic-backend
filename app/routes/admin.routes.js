@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, requireAdmin } from '../middleware/auth.js';
+import { adminLimiter } from '../middleware/rateLimiter.js';
 import { upload } from '../middleware/upload.js';
 import { validate } from '../middleware/validate.js';
 
@@ -18,11 +19,15 @@ import { createTreatmentSchema, updateTreatmentSchema } from '../validators/trea
 import { createTestimonialSchema, updateTestimonialSchema } from '../validators/testimonial.validator.js';
 import { createBlogSchema, updateBlogSchema } from '../validators/blog.validator.js';
 import { updateSettingsSchema } from '../validators/settings.validator.js';
+import { validateIdParam } from '../middleware/validateParams.js';
 
 const router = Router();
 
-// Enforce JWT authentication and Admin role (0 or 1) on all admin endpoints
-router.use(authenticate, requireAdmin);
+// Enforce rate limiting, JWT authentication and Admin role (0 or 1) on all admin endpoints
+router.use(adminLimiter, authenticate, requireAdmin);
+
+// Automatically validate :id parameter on all admin routes
+router.param('id', (req, res, next) => validateIdParam(req, res, next));
 
 // --- Dashboard ---
 router.get('/dashboard/stats', dashboardController.getStats);

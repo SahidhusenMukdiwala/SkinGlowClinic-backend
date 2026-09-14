@@ -35,6 +35,31 @@ export const getAllAdminSettings = async () => {
   };
 };
 
+export const ALLOWED_SETTING_KEYS = new Set([
+  'clinic_name',
+  'clinic_tagline',
+  'doctor_name',
+  'doctor_qualifications',
+  'phone',
+  'clinic_phone',
+  'email',
+  'clinic_email',
+  'address',
+  'clinic_address',
+  'working_hours',
+  'whatsapp_number',
+  'map_embed_url',
+  'facebook_url',
+  'instagram_url',
+  'youtube_url',
+  'about_text',
+  'about_image',
+  'hero_title',
+  'hero_subtitle',
+  'contact_email',
+  'contact_phone',
+]);
+
 /**
  * Admin: Bulk update settings
  * @param {Record<string, string> | Array<{ setting_key: string, setting_value: string }>} updates
@@ -42,7 +67,7 @@ export const getAllAdminSettings = async () => {
 export const updateSettings = async (updates) => {
   if (Array.isArray(updates)) {
     for (const item of updates) {
-      if (item.setting_key) {
+      if (item.setting_key && ALLOWED_SETTING_KEYS.has(item.setting_key)) {
         await SiteSetting.update(
           { setting_value: String(item.setting_value ?? '') },
           { where: { setting_key: item.setting_key } }
@@ -52,10 +77,12 @@ export const updateSettings = async (updates) => {
   } else if (typeof updates === 'object' && updates !== null) {
     const keys = Object.keys(updates);
     for (const key of keys) {
-      await SiteSetting.update(
-        { setting_value: String(updates[key] ?? '') },
-        { where: { setting_key: key } }
-      );
+      if (ALLOWED_SETTING_KEYS.has(key)) {
+        await SiteSetting.update(
+          { setting_value: String(updates[key] ?? '') },
+          { where: { setting_key: key } }
+        );
+      }
     }
   }
 

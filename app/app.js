@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 
+import { env } from './config/env.js';
+import { logger } from './utils/logger.js';
 import { corsOptions } from './config/cors.js';
 import { generalLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -15,12 +17,18 @@ const app = express();
 
 // Security Middleware
 app.use(helmet({
-  crossOriginResourcePolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 app.use(cors(corsOptions));
 
 // HTTP Request Logger & Compression
-app.use(morgan('dev'));
+app.use(
+  morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+    ...(env.NODE_ENV === 'production' && {
+      stream: { write: (msg) => logger.info(msg.trim()) },
+    }),
+  })
+);
 app.use(compression());
 
 // Body Parsers
@@ -32,12 +40,17 @@ app.use('/api', generalLimiter);
 
 // System Health Check Endpoint
 app.get('/api/health', (req, res) => {
-  return successResponse(res, {
+  const healthData = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
     service: 'SkinGlow Clinic API',
-  }, 'SkinGlow Clinic API is operational');
+  };
+
+  if (env.NODE_ENV !== 'production') {
+    healthData.uptime = process.uptime();
+  }
+
+  return successResponse(res, healthData, 'SkinGlow Clinic API is operational');
 });
 
 // Mount All Application API Routes

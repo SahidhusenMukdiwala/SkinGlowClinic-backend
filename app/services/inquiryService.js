@@ -31,7 +31,7 @@ export const getAdminInquiries = async ({
   const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
   const offset = (pageNum - 1) * limitNum;
 
-  const where = {};
+  const where = { is_delete: 0 };
 
   if (is_read !== undefined && is_read !== null && is_read !== '' && is_read !== 'all') {
     where.is_read = parseInt(is_read, 10);
@@ -67,7 +67,7 @@ export const getAdminInquiries = async ({
  * Get inquiry by ID
  */
 export const getInquiryById = async (id) => {
-  const inquiry = await Inquiry.findByPk(id);
+  const inquiry = await Inquiry.findOne({ where: { id, is_delete: 0 } });
   if (!inquiry) {
     const error = new Error('Inquiry not found');
     error.statusCode = 404;
@@ -80,7 +80,7 @@ export const getInquiryById = async (id) => {
  * Update inquiry read status
  */
 export const updateInquiryReadStatus = async (id, is_read = 1) => {
-  const inquiry = await Inquiry.findByPk(id);
+  const inquiry = await Inquiry.findOne({ where: { id, is_delete: 0 } });
   if (!inquiry) {
     const error = new Error('Inquiry not found');
     error.statusCode = 404;
@@ -95,14 +95,14 @@ export const updateInquiryReadStatus = async (id, is_read = 1) => {
  * Delete inquiry
  */
 export const deleteInquiry = async (id) => {
-  const inquiry = await Inquiry.findByPk(id);
+  const inquiry = await Inquiry.findOne({ where: { id, is_delete: 0 } });
   if (!inquiry) {
     const error = new Error('Inquiry not found');
     error.statusCode = 404;
     throw error;
   }
 
-  await inquiry.destroy();
-  return { id: parseInt(id, 10), message: 'Inquiry deleted successfully' };
+  await inquiry.update({ is_delete: 1 });
+  return { id: parseInt(id, 10), softDeleted: true, message: 'Inquiry deleted successfully' };
 };
 

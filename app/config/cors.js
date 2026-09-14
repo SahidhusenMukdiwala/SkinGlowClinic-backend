@@ -8,12 +8,18 @@ const allowedOrigins = [
 
 export const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, server-to-server)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    // Allow requests with no origin (like curl, Postman) only in non-production environments
+    if (!origin) {
+      if (env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      return callback(new Error('Origin header required in production'));
     }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

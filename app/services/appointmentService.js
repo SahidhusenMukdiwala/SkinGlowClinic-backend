@@ -5,6 +5,7 @@ import {
   sendAppointmentAlert,
   sendAppointmentCancellation 
 } from '../utils/email.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Retrieve all booked time slots for a given date (YYYY-MM-DD)
@@ -314,7 +315,7 @@ export const updateAppointment = async (id, data) => {
       treatment: appointment.treatment,
       reason: reason || updates.admin_notes || appointment.admin_notes,
     }).catch((err) => {
-      console.error('Failed to send cancellation email:', err);
+      logger.error('Failed to send cancellation email:', err);
     });
   }
 

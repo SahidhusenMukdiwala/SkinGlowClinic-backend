@@ -1,5 +1,6 @@
 import { Sequelize } from 'sequelize';
 import { env } from './env.js';
+import { logger } from '../utils/logger.js';
 
 export const sequelize = new Sequelize(
   env.DB.NAME,
@@ -9,7 +10,7 @@ export const sequelize = new Sequelize(
     host: env.DB.HOST,
     port: env.DB.PORT,
     dialect: 'mysql',
-    // logging: env.NODE_ENV === 'development' ? (msg) => console.log(`[Sequelize] ${msg}`) : false,
+    // logging: env.NODE_ENV === 'development' ? (msg) => logger.debug(`[Sequelize] ${msg}`) : false,
     logging: false,
     pool: {
       max: 10,
@@ -26,10 +27,10 @@ export const sequelize = new Sequelize(
 export const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ MySQL Database connected successfully via Sequelize.');
+    logger.info('✅ MySQL Database connected successfully via Sequelize.');
     return true;
   } catch (error) {
-    console.error('❌ Unable to connect to MySQL database:', error.message);
+    logger.error('❌ Unable to connect to MySQL database:', error.message);
     return false;
   }
 };

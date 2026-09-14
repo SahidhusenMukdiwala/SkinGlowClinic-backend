@@ -43,8 +43,6 @@ export const loginAdmin = async ({ identifier, password, ip }) => {
   const accessToken = jwt.sign(
     {
       id: user.id,
-      email: user.email,
-      mobile: user.mobile,
       role: user.role,
     },
     env.JWT.SECRET,
@@ -123,8 +121,6 @@ export const registerCustomer = async ({ full_name, email, mobile, password, ip 
   const accessToken = jwt.sign(
     {
       id: user.id,
-      email: user.email,
-      mobile: user.mobile,
       role: user.role,
     },
     env.JWT.SECRET,
@@ -202,8 +198,6 @@ export const refreshAccessToken = async (refreshToken) => {
   const newAccessToken = jwt.sign(
     {
       id: user.id,
-      email: user.email,
-      mobile: user.mobile,
       role: user.role,
     },
     env.JWT.SECRET,

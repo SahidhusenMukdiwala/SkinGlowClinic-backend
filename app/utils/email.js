@@ -122,7 +122,7 @@ export const sendAppointmentConfirmation = async ({ appointment, treatment }) =>
 
     const mailOptions = {
       from: getFromEmail(),
-      to: safeEmail,
+      to: appointment.email,
       subject: `Appointment Request Received (Approval Pending): ${treatmentTitle} at SkinGlow Clinic`,
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a2e; border: 1px solid #e0d7c7; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
@@ -260,7 +260,7 @@ export const sendAppointmentCancellation = async ({ appointment, treatment, reas
 
     const mailOptions = {
       from: getFromEmail(),
-      to: safeEmail,
+      to: appointment.email,
       subject: `Notice of Cancellation: Appointment for ${treatmentTitle} at SkinGlow Clinic (#APPT-${appointment.id})`,
       html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a2e; border: 1px solid #e0d7c7; border-radius: 12px; overflow: hidden; background-color: #ffffff;">

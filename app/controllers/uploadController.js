@@ -7,7 +7,16 @@ export const uploadMedia = async (req, res, next) => {
       return errorResponse(res, 'No image file uploaded.', 400);
     }
 
-    const folder = req.body.folder || req.query.folder || 'skinglowclinic/general';
+    const ALLOWED_FOLDERS = [
+      'skinglowclinic/general',
+      'skinglowclinic/treatments',
+      'skinglowclinic/blogs',
+      'skinglowclinic/testimonials',
+      'skinglowclinic/categories',
+    ];
+    const requestedFolder = req.body?.folder || req.query?.folder || 'skinglowclinic/general';
+    const folder = ALLOWED_FOLDERS.includes(requestedFolder) ? requestedFolder : 'skinglowclinic/general';
+
     const result = await uploadBufferToCloudinary(req.file.buffer, folder);
 
     return successResponse(

@@ -6,7 +6,7 @@ const DEFAULT_PATIENT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-
 
 export const getActiveTestimonials = async () => {
   return Testimonial.findAll({
-    where: { is_active: 1 },
+    where: { is_active: 1, is_delete: 0 },
     attributes: ['id', 'patient_name', 'patient_image', 'review_text', 'rating', 'createdAt'],
     order: [['id', 'DESC']],
   });
@@ -25,7 +25,7 @@ export const getAdminTestimonials = async ({
   const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
   const offset = (pageNum - 1) * limitNum;
 
-  const where = {};
+  const where = { is_delete: 0 };
 
   if (is_active !== undefined && is_active !== null && is_active !== '' && is_active !== 'all') {
     where.is_active = parseInt(is_active, 10);
@@ -59,7 +59,7 @@ export const getAdminTestimonials = async ({
  * Get testimonial by ID
  */
 export const getTestimonialById = async (id) => {
-  const testimonial = await Testimonial.findByPk(id);
+  const testimonial = await Testimonial.findOne({ where: { id, is_delete: 0 } });
   if (!testimonial) {
     const error = new Error(`Testimonial not found with ID: ${id}`);
     error.statusCode = 404;
@@ -94,7 +94,7 @@ export const createTestimonial = async (data, file) => {
  * Update an existing testimonial
  */
 export const updateTestimonial = async (id, data, file) => {
-  const testimonial = await Testimonial.findByPk(id);
+  const testimonial = await Testimonial.findOne({ where: { id, is_delete: 0 } });
   if (!testimonial) {
     const error = new Error(`Testimonial not found with ID: ${id}`);
     error.statusCode = 404;
@@ -124,16 +124,17 @@ export const updateTestimonial = async (id, data, file) => {
  * Delete a testimonial
  */
 export const deleteTestimonial = async (id) => {
-  const testimonial = await Testimonial.findByPk(id);
+  const testimonial = await Testimonial.findOne({ where: { id, is_delete: 0 } });
   if (!testimonial) {
     const error = new Error(`Testimonial not found with ID: ${id}`);
     error.statusCode = 404;
     throw error;
   }
 
-  await testimonial.destroy();
+  await testimonial.update({ is_delete: 1, is_active: 0 });
   return {
     id: parseInt(id, 10),
+    softDeleted: true,
     message: 'Testimonial deleted successfully',
   };
 };

@@ -29,6 +29,11 @@ export const Blog = sequelize.define('blogs', {
     allowNull: true,
     defaultValue: 1, // 0 = Draft, 1 = Published
   },
+  is_delete: {
+    type: DataTypes.TINYINT,
+    allowNull: true,
+    defaultValue: 0, // 0 = Active/Not deleted, 1 = Soft deleted
+  },
 }, {
   tableName: 'blogs',
   timestamps: true,

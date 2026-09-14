@@ -1,8 +1,25 @@
 import { Op } from 'sequelize';
+import sanitizeHtml from 'sanitize-html';
 import { Blog } from '../models/index.js';
 import { uploadBufferToCloudinary } from '../utils/cloudinary.js';
 
 const DEFAULT_BLOG_COVER = 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80';
+
+const sanitizeBlogContent = (rawHtml) => {
+  if (!rawHtml) return '';
+  return sanitizeHtml(rawHtml.trim(), {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'u', 's', 'strike', 'hr', 'figure', 'figcaption', 'span'
+    ]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+      a: ['href', 'name', 'target', 'rel'],
+      '*': ['style', 'class'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto', 'data'],
+  });
+};
 
 const generateSlug = (text) => {
   return text
@@ -21,7 +38,7 @@ export const getPublishedBlogs = async ({ page = 1, limit = 9, search } = {}) =>
   const limitNum = Math.max(1, Math.min(50, parseInt(limit, 10) || 9));
   const offset = (pageNum - 1) * limitNum;
 
-  const where = { is_published: 1 };
+  const where = { is_published: 1, is_delete: 0 };
 
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
@@ -56,6 +73,7 @@ export const getBlogBySlug = async (slug) => {
     where: {
       slug,
       is_published: 1,
+      is_delete: 0,
     },
   });
 
@@ -68,6 +86,7 @@ export const getBlogBySlug = async (slug) => {
     where: {
       id: { [Op.ne]: blog.id },
       is_published: 1,
+      is_delete: 0,
     },
     limit: 3,
     order: [['createdAt', 'DESC']],
@@ -93,7 +112,7 @@ export const getAdminBlogs = async ({
   const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
   const offset = (pageNum - 1) * limitNum;
 
-  const where = {};
+  const where = { is_delete: 0 };
 
   if (is_published !== undefined && is_published !== null && is_published !== '' && is_published !== 'all') {
     where.is_published = parseInt(is_published, 10);
@@ -128,7 +147,7 @@ export const getAdminBlogs = async ({
  * Admin: Get single blog by ID
  */
 export const getBlogById = async (id) => {
-  const blog = await Blog.findByPk(id);
+  const blog = await Blog.findOne({ where: { id, is_delete: 0 } });
   if (!blog) {
     const error = new Error(`Blog post not found with ID: ${id}`);
     error.statusCode = 404;
@@ -158,7 +177,7 @@ export const createBlog = async (data, file) => {
   const blog = await Blog.create({
     title: data.title.trim(),
     slug,
-    content: data.content.trim(),
+    content: sanitizeBlogContent(data.content),
     cover_image: coverImage,
     is_published: data.is_published !== undefined ? parseInt(data.is_published, 10) : 1,
   });
@@ -170,7 +189,7 @@ export const createBlog = async (data, file) => {
  * Admin: Update blog post
  */
 export const updateBlog = async (id, data, file) => {
-  const blog = await Blog.findByPk(id);
+  const blog = await Blog.findOne({ where: { id, is_delete: 0 } });
   if (!blog) {
     const error = new Error(`Blog post not found with ID: ${id}`);
     error.statusCode = 404;
@@ -184,6 +203,7 @@ export const updateBlog = async (id, data, file) => {
       where: {
         slug,
         id: { [Op.ne]: id },
+        is_delete: 0,
       },
     });
     if (existingWithSlug) {
@@ -202,7 +222,7 @@ export const updateBlog = async (id, data, file) => {
   await blog.update({
     title: data.title !== undefined ? data.title.trim() : blog.title,
     slug,
-    content: data.content !== undefined ? data.content.trim() : blog.content,
+    content: data.content !== undefined ? sanitizeBlogContent(data.content) : blog.content,
     cover_image: coverImage,
     is_published: data.is_published !== undefined ? parseInt(data.is_published, 10) : blog.is_published,
   });
@@ -214,16 +234,17 @@ export const updateBlog = async (id, data, file) => {
  * Admin: Delete blog post
  */
 export const deleteBlog = async (id) => {
-  const blog = await Blog.findByPk(id);
+  const blog = await Blog.findOne({ where: { id, is_delete: 0 } });
   if (!blog) {
     const error = new Error(`Blog post not found with ID: ${id}`);
     error.statusCode = 404;
     throw error;
   }
 
-  await blog.destroy();
+  await blog.update({ is_delete: 1 });
   return {
     id: parseInt(id, 10),
+    softDeleted: true,
     message: 'Blog post deleted successfully',
   };
 };

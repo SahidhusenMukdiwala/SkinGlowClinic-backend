@@ -20,7 +20,6 @@ export const createTreatmentSchema = Joi.object({
   image_url: Joi.string().trim().max(500).allow('', null),
   duration: Joi.string().trim().max(50).allow('', null),
   is_active: Joi.number().integer().valid(0, 1).default(1),
-  is_delete: Joi.number().integer().valid(0, 1).default(0),
   display_order: Joi.number().integer().default(0),
 }).or('category_id', 'category');
 
@@ -34,6 +33,5 @@ export const updateTreatmentSchema = Joi.object({
   image_url: Joi.string().trim().max(500).allow('', null),
   duration: Joi.string().trim().max(50).allow('', null),
   is_active: Joi.number().integer().valid(0, 1),
-  is_delete: Joi.number().integer().valid(0, 1),
   display_order: Joi.number().integer(),
 });
