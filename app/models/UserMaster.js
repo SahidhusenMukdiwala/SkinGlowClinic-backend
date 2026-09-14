@@ -32,6 +32,16 @@ export const UserMaster = sequelize.define('user_master', {
     allowNull: true,
     defaultValue: 2, // 0 = Super Admin, 1 = Admin, 2 = Customer / Patient
   },
+  is_active: {
+    type: DataTypes.TINYINT,
+    allowNull: true,
+    defaultValue: 1, // 0 = Inactive, 1 = Active
+  },
+  profile_image: {
+    type: DataTypes.STRING(300),
+    allowNull: true,
+    defaultValue: null,
+  },
 }, {
   tableName: 'user_master',
   timestamps: true,

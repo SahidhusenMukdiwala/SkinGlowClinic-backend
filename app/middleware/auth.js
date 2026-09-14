@@ -34,6 +34,13 @@ export const authenticate = async (req, res, next) => {
       return errorResponse(res, 'User no longer exists.', 401);
     }
 
+    if (user.is_active === 0) {
+      if (session) {
+        await session.destroy().catch(() => {});
+      }
+      return errorResponse(res, 'Your account has been deactivated. Please contact clinic support.', 403);
+    }
+
     if (!session) {
       return errorResponse(res, 'Session has been revoked or logged out. Please log in again.', 401);
     }

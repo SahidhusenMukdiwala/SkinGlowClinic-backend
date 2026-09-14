@@ -13,12 +13,14 @@ import * as testimonialController from '../controllers/testimonialController.js'
 import * as blogController from '../controllers/blogController.js';
 import * as settingsController from '../controllers/settingsController.js';
 import * as uploadController from '../controllers/uploadController.js';
+import * as customerController from '../controllers/customerController.js';
 
 import { createCategorySchema, updateCategorySchema } from '../validators/category.validator.js';
 import { createTreatmentSchema, updateTreatmentSchema } from '../validators/treatment.validator.js';
 import { createTestimonialSchema, updateTestimonialSchema } from '../validators/testimonial.validator.js';
 import { createBlogSchema, updateBlogSchema } from '../validators/blog.validator.js';
 import { updateSettingsSchema } from '../validators/settings.validator.js';
+import { updateCustomerStatusSchema } from '../validators/customer.validator.js';
 import { validateIdParam } from '../middleware/validateParams.js';
 
 const router = Router();
@@ -78,5 +80,10 @@ router.put('/settings', validate(updateSettingsSchema), settingsController.updat
 
 // --- Direct Media Upload ---
 router.post('/upload', upload.single('image'), uploadController.uploadMedia);
+
+// --- Customer Accounts Management (Role 2) ---
+router.get('/customers', customerController.getAdminCustomers);
+router.get('/customers/:id', customerController.getCustomerById);
+router.patch('/customers/:id/status', validate(updateCustomerStatusSchema), customerController.updateCustomerStatus);
 
 export default router;

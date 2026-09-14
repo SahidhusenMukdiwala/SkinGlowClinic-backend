@@ -1,4 +1,5 @@
 import * as authService from '../services/authService.js';
+import { uploadBufferToCloudinary } from '../utils/cloudinary.js';
 import { successResponse } from '../utils/responseHelper.js';
 
 export const login = async (req, res, next) => {
@@ -73,6 +74,27 @@ export const logout = async (req, res, next) => {
 
     const result = await authService.logoutAdmin({ userId, token, refreshToken });
     return successResponse(res, result, 'Logged out successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    let profileImageUrl = req.body.profile_image;
+
+    if (req.file && req.file.buffer) {
+      const uploadRes = await uploadBufferToCloudinary(req.file.buffer, 'skinglowclinic/profiles');
+      profileImageUrl = uploadRes.secure_url;
+    }
+
+    const payload = {};
+    if (req.body.full_name !== undefined) payload.full_name = req.body.full_name;
+    if (req.body.mobile !== undefined) payload.mobile = req.body.mobile;
+    if (profileImageUrl !== undefined) payload.profile_image = profileImageUrl;
+
+    const updatedUser = await authService.updateUserProfile(req.user.id, payload);
+    return successResponse(res, updatedUser, 'Profile updated successfully');
   } catch (error) {
     next(error);
   }

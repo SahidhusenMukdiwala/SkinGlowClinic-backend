@@ -54,7 +54,8 @@ export const getActiveTreatments = async (category, search) => {
     ],
     order: [
       ['display_order', 'ASC'],
-      ['id', 'ASC'],
+      ['createdAt', 'DESC'],
+      ['id', 'DESC'],
     ],
   });
 };
@@ -96,7 +97,11 @@ export const getTreatmentBySlug = async (slug) => {
       },
     ],
     limit: 3,
-    order: [['display_order', 'ASC']],
+    order: [
+      ['display_order', 'ASC'],
+      ['createdAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
   });
 
   return {
@@ -153,6 +158,7 @@ export const getAdminTreatments = async ({
     offset,
     order: [
       ['display_order', 'ASC'],
+      ['createdAt', 'DESC'],
       ['id', 'DESC'],
     ],
   });

@@ -1,4 +1,5 @@
-import { SiteSetting } from '../models/index.js';
+import { Op } from 'sequelize';
+import { SiteSetting, UserMaster } from '../models/index.js';
 
 export const getPublicSettings = async () => {
   const settingsRecords = await SiteSetting.findAll({
@@ -8,6 +9,26 @@ export const getPublicSettings = async () => {
   const settingsMap = {};
   for (const record of settingsRecords) {
     settingsMap[record.setting_key] = record.setting_value;
+  }
+
+  // Dynamically attach primary doctor / administrator profile_image
+  try {
+    const leadAdmin = await UserMaster.findOne({
+      where: {
+        role: { [Op.in]: [0, 1] },
+        is_active: 1,
+        profile_image: { [Op.ne]: null },
+      },
+      order: [['role', 'ASC'], ['id', 'ASC']],
+      attributes: ['id', 'full_name', 'profile_image'],
+    });
+
+    if (leadAdmin?.profile_image) {
+      settingsMap.doctor_image = leadAdmin.profile_image;
+      settingsMap.doctor_profile_image = leadAdmin.profile_image;
+    }
+  } catch {
+    // Non-critical: gracefully fallback if user_master query fails
   }
 
   return {
@@ -29,6 +50,26 @@ export const getAllAdminSettings = async () => {
     settingsMap[record.setting_key] = record.setting_value;
   }
 
+  // Dynamically attach primary doctor / administrator profile_image
+  try {
+    const leadAdmin = await UserMaster.findOne({
+      where: {
+        role: { [Op.in]: [0, 1] },
+        is_active: 1,
+        profile_image: { [Op.ne]: null },
+      },
+      order: [['role', 'ASC'], ['id', 'ASC']],
+      attributes: ['id', 'full_name', 'profile_image'],
+    });
+
+    if (leadAdmin?.profile_image) {
+      settingsMap.doctor_image = leadAdmin.profile_image;
+      settingsMap.doctor_profile_image = leadAdmin.profile_image;
+    }
+  } catch {
+    // Non-critical fallback
+  }
+
   return {
     settings: settingsRecords,
     map: settingsMap,
@@ -40,6 +81,8 @@ export const ALLOWED_SETTING_KEYS = new Set([
   'clinic_tagline',
   'doctor_name',
   'doctor_qualifications',
+  'doctor_image',
+  'doctor_profile_image',
   'phone',
   'clinic_phone',
   'email',

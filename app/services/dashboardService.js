@@ -12,10 +12,12 @@ export const getDashboardStats = async () => {
   const [
     totalAppointments,
     todayAppointments,
-    pendingAppointments,
+    pendingAppointmentsCount,
     confirmedAppointments,
     completedAppointments,
     totalInquiries,
+    unreadInquiriesCount,
+    pendingAppointments,
     unreadInquiries,
     recentAppointments,
     recentInquiries,
@@ -34,6 +36,26 @@ export const getDashboardStats = async () => {
     Appointment.count({ where: { status: 2, is_delete: 0 } }),
     Inquiry.count({ where: { is_delete: 0 } }),
     Inquiry.count({ where: { is_read: 0, is_delete: 0 } }),
+    // Pending Appointments (status: 0)
+    Appointment.findAll({
+      where: { status: 0, is_delete: 0 },
+      limit: 5,
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: Treatment,
+          as: 'treatment',
+          attributes: ['id', 'title', 'slug', 'category_id'],
+        },
+      ],
+    }),
+    // Unread Inquiries (is_read: 0)
+    Inquiry.findAll({
+      where: { is_read: 0, is_delete: 0 },
+      limit: 5,
+      order: [['createdAt', 'DESC']],
+    }),
+    // Recent Appointments (all statuses)
     Appointment.findAll({
       where: { is_delete: 0 },
       limit: 5,
@@ -46,6 +68,7 @@ export const getDashboardStats = async () => {
         },
       ],
     }),
+    // Recent Inquiries (all)
     Inquiry.findAll({
       where: { is_delete: 0 },
       limit: 5,
@@ -57,12 +80,14 @@ export const getDashboardStats = async () => {
     kpis: {
       totalAppointments,
       todayAppointments,
-      pendingAppointments,
+      pendingAppointments: pendingAppointmentsCount,
       confirmedAppointments,
       completedAppointments,
       totalInquiries,
-      unreadInquiries,
+      unreadInquiries: unreadInquiriesCount,
     },
+    pendingAppointments,
+    unreadInquiries,
     recentAppointments,
     recentInquiries,
   };

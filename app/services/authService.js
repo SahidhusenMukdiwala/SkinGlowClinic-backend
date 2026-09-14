@@ -39,6 +39,13 @@ export const loginAdmin = async ({ identifier, password, ip }) => {
     throw error;
   }
 
+  // Check if account has been deactivated
+  if (user.is_active === 0) {
+    const error = new Error('Your account has been deactivated. Please contact clinic support.');
+    error.statusCode = 403;
+    throw error;
+  }
+
   // Generate tokens
   const accessToken = jwt.sign(
     {
@@ -70,6 +77,8 @@ export const loginAdmin = async ({ identifier, password, ip }) => {
       email: user.email,
       mobile: user.mobile,
       role: user.role,
+      is_active: user.is_active,
+      profile_image: user.profile_image,
     },
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -115,6 +124,7 @@ export const registerCustomer = async ({ full_name, email, mobile, password, ip 
     mobile: cleanMobile,
     password: hashedPassword,
     role: 2, // 2 = Customer / Patient
+    is_active: 1,
   });
 
   // Generate tokens
@@ -148,6 +158,8 @@ export const registerCustomer = async ({ full_name, email, mobile, password, ip 
       email: user.email,
       mobile: user.mobile,
       role: user.role,
+      is_active: user.is_active,
+      profile_image: user.profile_image,
     },
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -156,7 +168,7 @@ export const registerCustomer = async ({ full_name, email, mobile, password, ip 
 
 export const getAdminProfile = async (userId) => {
   return UserMaster.findByPk(userId, {
-    attributes: ['id', 'full_name', 'email', 'mobile', 'role', 'createdAt'],
+    attributes: ['id', 'full_name', 'email', 'mobile', 'role', 'is_active', 'profile_image', 'createdAt'],
   });
 };
 
@@ -195,6 +207,13 @@ export const refreshAccessToken = async (refreshToken) => {
     throw error;
   }
 
+  if (user.is_active === 0) {
+    await session.destroy().catch(() => {});
+    const error = new Error('Your account has been deactivated. Please contact clinic support.');
+    error.statusCode = 403;
+    throw error;
+  }
+
   const newAccessToken = jwt.sign(
     {
       id: user.id,
@@ -214,6 +233,8 @@ export const refreshAccessToken = async (refreshToken) => {
       email: user.email,
       mobile: user.mobile,
       role: user.role,
+      is_active: user.is_active,
+      profile_image: user.profile_image,
     },
   };
 };
@@ -229,5 +250,38 @@ export const logoutAdmin = async ({ userId, token, refreshToken }) => {
   }
 
   return { message: 'Logged out successfully' };
+};
+
+/**
+ * Update user/admin profile details and profile_image
+ */
+export const updateUserProfile = async (userId, data = {}) => {
+  const user = await UserMaster.findByPk(userId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updates = {};
+  if (data.full_name !== undefined && data.full_name.trim()) updates.full_name = data.full_name.trim();
+  if (data.mobile !== undefined && data.mobile.trim()) updates.mobile = data.mobile.trim();
+  if (data.profile_image !== undefined) updates.profile_image = data.profile_image || null;
+
+  if (Object.keys(updates).length > 0) {
+    await user.update(updates);
+  }
+
+  return {
+    id: user.id,
+    full_name: user.full_name,
+    email: user.email,
+    mobile: user.mobile,
+    role: user.role,
+    is_active: user.is_active,
+    profile_image: user.profile_image,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 };
 

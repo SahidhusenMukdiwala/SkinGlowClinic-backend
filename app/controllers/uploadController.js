@@ -13,6 +13,7 @@ export const uploadMedia = async (req, res, next) => {
       'skinglowclinic/blogs',
       'skinglowclinic/testimonials',
       'skinglowclinic/categories',
+      'skinglowclinic/profiles',
     ];
     const requestedFolder = req.body?.folder || req.query?.folder || 'skinglowclinic/general';
     const folder = ALLOWED_FOLDERS.includes(requestedFolder) ? requestedFolder : 'skinglowclinic/general';
