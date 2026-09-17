@@ -149,6 +149,7 @@ export const createAppointment = async (data) => {
         id: treatment.id,
         title: treatment.title,
         slug: treatment.slug,
+        price: treatment.price ?? 0,
         duration: treatment.duration,
         category_id: treatment.category_id,
       },
@@ -219,7 +220,7 @@ export const getAdminAppointments = async ({
       {
         model: Treatment,
         as: 'treatment',
-        attributes: ['id', 'title', 'slug', 'category_id', 'duration'],
+        attributes: ['id', 'title', 'slug', 'category_id', 'price', 'duration'],
       },
     ],
   });
@@ -251,7 +252,7 @@ export const getAppointmentById = async (id) => {
       {
         model: Treatment,
         as: 'treatment',
-        attributes: ['id', 'title', 'slug', 'category_id', 'duration'],
+        attributes: ['id', 'title', 'slug', 'category_id', 'price', 'duration'],
       },
     ],
   });
@@ -281,7 +282,7 @@ export const updateAppointment = async (id, data) => {
       {
         model: Treatment,
         as: 'treatment',
-        attributes: ['id', 'title', 'slug', 'category_id', 'duration'],
+        attributes: ['id', 'title', 'slug', 'category_id', 'price', 'duration'],
       },
     ],
   });

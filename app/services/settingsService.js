@@ -104,6 +104,34 @@ export const ALLOWED_SETTING_KEYS = new Set([
 ]);
 
 /**
+ * Helper to safely update existing setting or create missing key
+ */
+const saveSingleSetting = async (key, rawValue) => {
+  const value = String(rawValue ?? '');
+  const existing = await SiteSetting.findOne({ where: { setting_key: key } });
+  if (existing) {
+    await existing.update({ setting_value: value });
+  } else {
+    let setting_type = 1;
+    if (key.includes('url') || key.includes('image')) setting_type = 3;
+    else if (key.includes('email')) setting_type = 4;
+    else if (key.includes('phone') || key.includes('whatsapp')) setting_type = 5;
+    else if (key.includes('text') || key.includes('address') || key.includes('hours')) setting_type = 2;
+
+    const display_label = key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    await SiteSetting.create({
+      setting_key: key,
+      setting_value: value,
+      setting_type,
+      display_label,
+    });
+  }
+};
+
+/**
  * Admin: Bulk update settings
  * @param {Record<string, string> | Array<{ setting_key: string, setting_value: string }>} updates
  */
@@ -111,20 +139,14 @@ export const updateSettings = async (updates) => {
   if (Array.isArray(updates)) {
     for (const item of updates) {
       if (item.setting_key && ALLOWED_SETTING_KEYS.has(item.setting_key)) {
-        await SiteSetting.update(
-          { setting_value: String(item.setting_value ?? '') },
-          { where: { setting_key: item.setting_key } }
-        );
+        await saveSingleSetting(item.setting_key, item.setting_value);
       }
     }
   } else if (typeof updates === 'object' && updates !== null) {
     const keys = Object.keys(updates);
     for (const key of keys) {
       if (ALLOWED_SETTING_KEYS.has(key)) {
-        await SiteSetting.update(
-          { setting_value: String(updates[key] ?? '') },
-          { where: { setting_key: key } }
-        );
+        await saveSingleSetting(key, updates[key]);
       }
     }
   }

@@ -2,11 +2,7 @@ import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
 import { logger } from './logger.js';
 import { SiteSetting } from '../models/index.js';
-import {
-  EMAIL_ACTIONS,
-  getEmailTemplate,
-  escapeHtml,
-} from './emailTemplates.js';
+import { EMAIL_ACTIONS, getEmailTemplate, escapeHtml } from './emailTemplates.js';
 
 export { EMAIL_ACTIONS, escapeHtml };
 
@@ -42,56 +38,74 @@ const getClinicEmail = () => env.SMTP?.CLINIC_NOTIFICATION_EMAIL || env.CLINIC_N
  */
 export const getClinicMetadata = async () => {
   try {
-    const settings = await SiteSetting.findAll({
-      where: {
-        setting_key: [
-          'clinic_name',
-          'doctor_name',
-          'doctor_qualifications',
-          'clinic_phone',
-          'phone',
-          'clinic_email',
-          'email',
-          'clinic_tagline',
-          'clinic_address',
-          'address',
-        ],
-      },
-    });
+    const settings = await SiteSetting.findAll({ raw: true });
 
     const map = {};
     for (const s of settings) {
-      map[s.setting_key] = s.setting_value;
+      if (s.setting_key) {
+        map[s.setting_key] = s.setting_value;
+      }
     }
 
-    const doctorName = map.doctor_name || 'Dr. Aisha Sharma';
-    const doctorQual = map.doctor_qualifications ? `, ${map.doctor_qualifications}` : ', MD';
-    const doctorTitle = `${doctorName}${doctorQual} & Clinical Team`;
     const clinicName = map.clinic_name || 'SkinGlow Clinic';
-    const clinicPhone = map.clinic_phone || map.phone || '+91 98765 43210';
-    const clinicEmail = map.clinic_email || map.email || 'contact@skinglow.com';
-    const clinicTagline = map.clinic_tagline || 'Dermatology & Aesthetic Excellence';
-    const clinicAddress = map.clinic_address || map.address || 'SkinGlow Clinic, Medical Arts Pavilion';
+    const doctorName = map.doctor_name || 'Lead Specialist';
+    const doctorQualifications = map.doctor_qualifications || '';
+    const doctorQual = doctorQualifications ? `, ${doctorQualifications}` : '';
+    const doctorTitle = map.doctor_name
+      ? `${map.doctor_name}${doctorQual} & Clinical Team`
+      : 'Medical Director & Clinical Team';
+    const clinicPhone = map.phone || map.clinic_phone || '+91 98201 23456';
+    const clinicEmail = map.email || map.clinic_email || 'contact@skinglowclinic.com';
+    const clinicTagline = map.clinic_tagline || 'Advanced Dermatological & Aesthetic Care';
+    const clinicAddress = map.address || map.clinic_address || 'Radiant Medical Enclave, Linking Road, Bandra West, Mumbai';
+    const workingHours = map.working_hours || '';
+    const whatsappNumber = map.whatsapp_number || clinicPhone;
+    const instagramUrl = map.instagram_url || '';
+    const facebookUrl = map.facebook_url || '';
+    const youtubeUrl = map.youtube_url || '';
+
+    // Sender "From" header
+    const smtpFromEnv = env.SMTP?.FROM || env.SMTP_FROM;
+    const smtpUser = env.SMTP?.USER || env.SMTP_USER || 'noreply@skinglowclinic.com';
+    const fromEmail = smtpFromEnv || `"${clinicName}" <${smtpUser}>`;
 
     return {
       doctorName,
+      doctorQualifications,
+      doctorQual,
       doctorTitle,
       clinicName,
       clinicPhone,
       clinicEmail,
       clinicTagline,
       clinicAddress,
+      workingHours,
+      whatsappNumber,
+      instagramUrl,
+      facebookUrl,
+      youtubeUrl,
+      fromEmail,
+      rawMap: map,
     };
   } catch (err) {
     logger.warn('Could not fetch clinic site settings for email template, using defaults: %s', err.message);
     return {
-      doctorName: 'Dr. Aisha Sharma',
-      doctorTitle: 'Dr. Aisha Sharma, MD & Clinical Team',
+      doctorName: 'Lead Specialist',
+      doctorQualifications: '',
+      doctorQual: '',
+      doctorTitle: 'Medical Director & Clinical Team',
       clinicName: 'SkinGlow Clinic',
-      clinicPhone: '+91 98765 43210',
-      clinicEmail: 'contact@skinglow.com',
-      clinicTagline: 'Dermatology & Aesthetic Excellence',
-      clinicAddress: 'SkinGlow Clinic, Medical Arts Pavilion',
+      clinicPhone: '+91 98201 23456',
+      clinicEmail: 'contact@skinglowclinic.com',
+      clinicTagline: 'Advanced Dermatological & Aesthetic Care',
+      clinicAddress: 'Radiant Medical Enclave, Linking Road, Bandra West, Mumbai',
+      workingHours: '',
+      whatsappNumber: '+91 98201 23456',
+      instagramUrl: '',
+      facebookUrl: '',
+      youtubeUrl: '',
+      fromEmail: 'SkinGlow Clinic <noreply@skinglowclinic.com>',
+      rawMap: {},
     };
   }
 };
@@ -99,17 +113,17 @@ export const getClinicMetadata = async () => {
 /**
  * Core SMTP Mail Sender Helper
  */
-export const sendMail = async ({ to, subject, html, logContext = '' }) => {
+export const sendMail = async ({ to, subject, html, logContext = '', from }) => {
   try {
     const mailer = getTransporter();
 
     if (!mailer) {
-      logger.info(`[Mock Email] ${logContext || subject} -> to: ${to}`);
+      logger.info(`[Mock Email] ${logContext || subject} -> to: ${to} from: ${from || getFromEmail()}`);
       return { mock: true, delivered: true, to, subject };
     }
 
     const mailOptions = {
-      from: getFromEmail(),
+      from: from || getFromEmail(),
       to,
       subject,
       html,
@@ -137,6 +151,7 @@ export const sendActionEmail = async ({ to, action, payload }) => {
   const { subject, html } = getEmailTemplate(action, payload, meta);
   return sendMail({
     to,
+    from: meta.fromEmail,
     subject,
     html,
     logContext: `${action} (#APPT-${payload?.appointment?.id || payload?.inquiry?.id || ''})`,
@@ -205,10 +220,11 @@ export const sendAppointmentCancellation = async ({ appointment, treatment, reas
  */
 export const sendInquiryNotification = async (inquiry) => {
   const meta = await getClinicMetadata();
-  const to = getClinicEmail();
+  const to = meta.clinicEmail || getClinicEmail();
   const { subject, html } = getEmailTemplate(EMAIL_ACTIONS.INQUIRY_NOTIFICATION, { inquiry }, meta);
   return sendMail({
     to,
+    from: meta.fromEmail,
     subject,
     html,
     logContext: `Inquiry #${inquiry.id} staff alert`,
@@ -222,24 +238,10 @@ export const sendInquiryNotification = async (inquiry) => {
  */
 export const sendAppointmentAlert = async ({ appointment, treatment }) => {
   const meta = await getClinicMetadata();
-  const to = getClinicEmail();
+  const to = meta.clinicEmail || getClinicEmail();
   const treatmentTitle = escapeHtml(treatment?.title || 'Clinical Consultation');
   const safePatientName = escapeHtml(appointment?.patient_name);
   const subject = `[New Appointment Alert] #${appointment?.id} - ${safePatientName} (${treatmentTitle})`;
-  
-  const contentHtml = `
-    <div style="border-bottom: 2px solid #10b981; padding-bottom: 12px; margin-bottom: 20px;">
-      <h2 style="color: #1a1a2e; margin: 0; font-size: 18px;">New Appointment Scheduled</h2>
-      <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 13px;">Immediate staff action notification</p>
-    </div>
-    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-      <tr><td style="padding: 6px 0; color: #6b7280; width: 140px;"><strong>Appt ID:</strong></td><td style="font-weight: 700;">#${appointment?.id}</td></tr>
-      <tr><td style="padding: 6px 0; color: #6b7280;"><strong>Patient:</strong></td><td style="font-weight: 600;">${safePatientName}</td></tr>
-      <tr><td style="padding: 6px 0; color: #6b7280;"><strong>Phone:</strong></td><td>${escapeHtml(appointment?.phone)}</td></tr>
-      <tr><td style="padding: 6px 0; color: #6b7280;"><strong>Email:</strong></td><td>${escapeHtml(appointment?.email)}</td></tr>
-      <tr><td style="padding: 6px 0; color: #6b7280;"><strong>Procedure:</strong></td><td style="font-weight: 600;">${treatmentTitle}</td></tr>
-    </table>
-  `;
 
   const html = getEmailTemplate(EMAIL_ACTIONS.INQUIRY_NOTIFICATION, {
     inquiry: {
@@ -254,6 +256,7 @@ export const sendAppointmentAlert = async ({ appointment, treatment }) => {
 
   return sendMail({
     to,
+    from: meta.fromEmail,
     subject,
     html,
     logContext: `Staff alert for Appt #${appointment?.id}`,

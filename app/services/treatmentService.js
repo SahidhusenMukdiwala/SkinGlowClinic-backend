@@ -41,6 +41,7 @@ export const getActiveTreatments = async (category, search) => {
       'category_id',
       'short_description',
       'image_url',
+      'price',
       'duration',
       'display_order',
       'createdAt',
@@ -88,7 +89,7 @@ export const getTreatmentBySlug = async (slug) => {
       is_active: 1,
       is_delete: 0,
     },
-    attributes: ['id', 'title', 'slug', 'category_id', 'short_description', 'image_url', 'duration'],
+    attributes: ['id', 'title', 'slug', 'category_id', 'short_description', 'image_url', 'price', 'duration'],
     include: [
       {
         model: Category,
@@ -218,6 +219,10 @@ export const createTreatment = async (data, file) => {
   const rawCat = data.category_id !== undefined ? data.category_id : data.category;
   const category_id = parseInt(rawCat, 10);
 
+  const price = data.price !== undefined && data.price !== '' && data.price !== null
+    ? Math.max(0, parseInt(data.price, 10) || 0)
+    : 0;
+
   const treatment = await Treatment.create({
     title: data.title.trim(),
     slug,
@@ -225,6 +230,7 @@ export const createTreatment = async (data, file) => {
     short_description: data.short_description ? data.short_description.trim() : null,
     full_description: data.full_description ? data.full_description.trim() : null,
     image_url: imageUrl,
+    price,
     duration: data.duration ? data.duration.trim() : null,
     is_delete: 0,
     is_active: data.is_active !== undefined ? parseInt(data.is_active, 10) : 1,
@@ -272,6 +278,11 @@ export const updateTreatment = async (id, data, file) => {
   const rawCat = data.category_id !== undefined ? data.category_id : data.category;
   const updatedCategoryId = rawCat !== undefined ? parseInt(rawCat, 10) : treatment.category_id;
 
+  let updatedPrice = treatment.price;
+  if (data.price !== undefined && data.price !== null) {
+    updatedPrice = data.price === '' ? 0 : Math.max(0, parseInt(data.price, 10) || 0);
+  }
+
   await treatment.update({
     title: data.title !== undefined ? data.title.trim() : treatment.title,
     slug,
@@ -279,6 +290,7 @@ export const updateTreatment = async (id, data, file) => {
     short_description: data.short_description !== undefined ? data.short_description : treatment.short_description,
     full_description: data.full_description !== undefined ? data.full_description : treatment.full_description,
     image_url: imageUrl,
+    price: updatedPrice,
     duration: data.duration !== undefined ? data.duration : treatment.duration,
     is_active: data.is_active !== undefined ? parseInt(data.is_active, 10) : treatment.is_active,
     display_order: data.display_order !== undefined ? parseInt(data.display_order, 10) : treatment.display_order,

@@ -36,6 +36,11 @@ export const Treatment = sequelize.define('treatments', {
     type: DataTypes.STRING(500),
     allowNull: true,
   },
+  price: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 0,
+  },
   duration: {
     type: DataTypes.STRING(50),
     allowNull: true,

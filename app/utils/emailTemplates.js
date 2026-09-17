@@ -55,11 +55,17 @@ export const baseEmailLayout = ({
   clinicMeta = {},
 }) => {
   const safeClinicName = escapeHtml(clinicMeta.clinicName || 'SkinGlow Clinic');
-  const safeClinicTagline = escapeHtml(clinicMeta.clinicTagline || 'Dermatology & Aesthetic Excellence');
-  const safeClinicPhone = escapeHtml(clinicMeta.clinicPhone || '+91 98765 43210');
-  const safeClinicEmail = escapeHtml(clinicMeta.clinicEmail || 'contact@skinglow.com');
-  const safeDoctorTitle = escapeHtml(clinicMeta.doctorTitle || 'Dr. Aisha Sharma, MD & Clinical Team');
-  const safeAddress = escapeHtml(clinicMeta.clinicAddress || 'SkinGlow Clinic, Medical Arts Pavilion');
+  const safeClinicTagline = escapeHtml(clinicMeta.clinicTagline || 'Advanced Dermatological & Aesthetic Care');
+  const safeClinicPhone = escapeHtml(clinicMeta.clinicPhone || '+91 98201 23456');
+  const safeClinicEmail = escapeHtml(clinicMeta.clinicEmail || 'contact@skinglowclinic.com');
+  const safeDoctorTitle = escapeHtml(
+    clinicMeta.doctorTitle ||
+      (clinicMeta.doctorName
+        ? `${clinicMeta.doctorName}${clinicMeta.doctorQual || ''} & Clinical Team`
+        : 'Medical Director & Clinical Team')
+  );
+  const safeAddress = escapeHtml(clinicMeta.clinicAddress || 'Radiant Medical Enclave, Linking Road, Bandra West, Mumbai');
+  const safeHours = clinicMeta.workingHours ? escapeHtml(clinicMeta.workingHours) : '';
 
   return `
     <!DOCTYPE html>
@@ -97,7 +103,7 @@ export const baseEmailLayout = ({
           <!-- Clinic Footer -->
           <div style="background-color: #f9fafb; padding: 20px 28px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; line-height: 1.6; text-align: center;">
             <p style="margin: 0 0 4px 0;">
-              <strong>Helpline:</strong> ${safeClinicPhone} &nbsp;•&nbsp; <strong>Email:</strong> <a href="mailto:${safeClinicEmail}" style="color: #c9a96e; text-decoration: none;">${safeClinicEmail}</a>
+              <strong>Helpline:</strong> ${safeClinicPhone} &nbsp;•&nbsp; <strong>Email:</strong> <a href="mailto:${safeClinicEmail}" style="color: #c9a96e; text-decoration: none;">${safeClinicEmail}</a>${safeHours ? ` &nbsp;•&nbsp; <strong>Hours:</strong> ${safeHours}` : ''}
             </p>
             <p style="margin: 0; color: #9ca3af; font-size: 11px;">
               ${safeAddress} &nbsp;•&nbsp; Confidential & Proprietary Medical Communications
@@ -140,6 +146,11 @@ export const renderAppointmentPending = ({ appointment, treatment }, clinicMeta 
           <td style="padding: 6px 0; color: #6b7280; width: 140px;"><strong>Procedure:</strong></td>
           <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">${treatmentTitle}</td>
         </tr>
+        ${Number(treatment?.price) > 0 ? `
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280;"><strong>Procedure Fee:</strong></td>
+          <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">₹${Number(treatment.price).toLocaleString('en-IN')}</td>
+        </tr>` : ''}
         <tr>
           <td style="padding: 6px 0; color: #6b7280;"><strong>Requested Slot:</strong></td>
           <td style="padding: 6px 0; color: #c9a96e; font-weight: 600;">${formattedDate}</td>
@@ -193,7 +204,11 @@ export const renderAppointmentConfirmed = ({ appointment, treatment }, clinicMet
   const formattedDate = formatDateTime(appointment.preferred_date_time);
   const safePatientName = escapeHtml(appointment.patient_name);
   const safeClinicName = escapeHtml(rawClinicName);
-  const safeDoctorTitle = escapeHtml(clinicMeta?.doctorTitle || 'Dr. Aisha Sharma, MD & Clinical Team');
+  const safeDoctorTitle = escapeHtml(
+    clinicMeta?.doctorName
+      ? `${clinicMeta.doctorName}${clinicMeta.doctorQual || (clinicMeta.doctorQualifications ? `, ${clinicMeta.doctorQualifications}` : '')}`
+      : (clinicMeta?.doctorTitle || 'Lead Specialist')
+  );
 
   const subject = `Appointment Confirmed: ${rawTreatmentTitle} at ${rawClinicName} (#APPT-${appointment.id})`;
 
@@ -212,6 +227,11 @@ export const renderAppointmentConfirmed = ({ appointment, treatment }, clinicMet
           <td style="padding: 6px 0; color: #6b7280; width: 140px;"><strong>Procedure:</strong></td>
           <td style="padding: 6px 0; color: #1a1a2e; font-weight: 700;">${treatmentTitle}</td>
         </tr>
+        ${Number(treatment?.price) > 0 ? `
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280;"><strong>Procedure Fee:</strong></td>
+          <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">₹${Number(treatment.price).toLocaleString('en-IN')}</td>
+        </tr>` : ''}
         <tr>
           <td style="padding: 6px 0; color: #6b7280;"><strong>Confirmed Slot:</strong></td>
           <td style="padding: 6px 0; color: #15803d; font-weight: 700; font-size: 15px;">${formattedDate}</td>
