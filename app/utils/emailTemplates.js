@@ -4,11 +4,13 @@
  */
 
 export const EMAIL_ACTIONS = {
-  APPOINTMENT_PENDING: 'APPOINTMENT_PENDING',     // Initial request submitted by patient
-  APPOINTMENT_CONFIRMED: 'APPOINTMENT_CONFIRMED', // Admin marks appointment confirmed (1)
-  APPOINTMENT_COMPLETED: 'APPOINTMENT_COMPLETED', // Admin marks appointment completed (2)
-  APPOINTMENT_CANCELLED: 'APPOINTMENT_CANCELLED', // Admin marks appointment cancelled (3)
-  INQUIRY_NOTIFICATION: 'INQUIRY_NOTIFICATION',   // Staff alert on contact inquiry
+  APPOINTMENT_PENDING: 'APPOINTMENT_PENDING',         // Initial request submitted by patient
+  APPOINTMENT_CONFIRMED: 'APPOINTMENT_CONFIRMED',     // Admin marks appointment confirmed (1)
+  APPOINTMENT_COMPLETED: 'APPOINTMENT_COMPLETED',     // Admin marks appointment completed (2)
+  APPOINTMENT_CANCELLED: 'APPOINTMENT_CANCELLED',     // Admin marks appointment cancelled (3)
+  INQUIRY_NOTIFICATION: 'INQUIRY_NOTIFICATION',       // Staff / Doctor alert on contact inquiry
+  INQUIRY_CONFIRMATION: 'INQUIRY_CONFIRMATION',       // Patient receipt acknowledgment on contact inquiry
+  APPOINTMENT_ALERT_DOCTOR: 'APPOINTMENT_ALERT_DOCTOR', // Doctor alert on new appointment booking
 };
 
 /**
@@ -462,6 +464,157 @@ export const renderInquiryNotification = ({ inquiry }, clinicMeta = {}) => {
 };
 
 /**
+ * 6. Inquiry Confirmation (Patient Receipt)
+ */
+export const renderInquiryConfirmation = ({ inquiry }, clinicMeta = {}) => {
+  const rawClinicName = clinicMeta?.clinicName || 'SkinGlow Clinic';
+  const safeName = escapeHtml(inquiry.name);
+  const safeEmail = escapeHtml(inquiry.email);
+  const safePhone = escapeHtml(inquiry.phone);
+  const safeSubject = escapeHtml(inquiry.subject || 'General Clinical Inquiry');
+  const safeMessage = escapeHtml(inquiry.message);
+  const safeClinicName = escapeHtml(rawClinicName);
+  const safeClinicPhone = escapeHtml(clinicMeta.clinicPhone || '+91 98201 23456');
+
+  const subject = `Thank you for contacting ${rawClinicName} - Inquiry Received [Ref: #INQ-${inquiry.id}]`;
+
+  const contentHtml = `
+    <p style="font-size: 16px; margin: 0 0 16px 0;">Dear <strong>${safeName}</strong>,</p>
+    <p style="font-size: 14px; color: #4b5563; line-height: 1.6; margin-bottom: 24px;">
+      Thank you for getting in touch with <strong>${safeClinicName}</strong>. We have successfully received your inquiry and our clinical team has been notified. One of our specialists or care coordinators will review your details and respond to you as soon as possible.
+    </p>
+
+    <div style="background-color: #fdfbf7; border: 1px solid #f0e6d6; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 14px 0; color: #1a1a2e; font-size: 15px; border-bottom: 1px solid #e5dac9; padding-bottom: 8px;">
+        Inquiry Submission Summary (Ref: #INQ-${inquiry.id})
+      </h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280; width: 140px;"><strong>Reference No:</strong></td>
+          <td style="padding: 6px 0; color: #1a1a2e; font-weight: 700;">#INQ-${inquiry.id}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280;"><strong>Subject:</strong></td>
+          <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">${safeSubject}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280;"><strong>Your Mobile:</strong></td>
+          <td style="padding: 6px 0; color: #1a1a2e;">${safePhone}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280;"><strong>Your Email:</strong></td>
+          <td style="padding: 6px 0; color: #1a1a2e;">${safeEmail}</td>
+        </tr>
+        ${safeMessage ? `
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280; vertical-align: top;"><strong>Message:</strong></td>
+          <td style="padding: 6px 0; color: #4b5563; font-style: italic;">${safeMessage}</td>
+        </tr>` : ''}
+      </table>
+    </div>
+
+    <div style="border-left: 3px solid #c9a96e; padding: 12px 16px; background-color: #faf7f2; border-radius: 0 6px 6px 0; margin-bottom: 8px;">
+      <h4 style="margin: 0 0 6px 0; color: #1a1a2e; font-size: 14px;">Need Immediate Assistance?</h4>
+      <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.5;">
+        If your request is urgent or you wish to schedule a priority consultation right away, please call our clinic directly at <strong>${safeClinicPhone}</strong>.
+      </p>
+    </div>
+  `;
+
+  const html = baseEmailLayout({
+    headerTitle: safeClinicName,
+    headerSubtitle: 'We Have Received Your Inquiry',
+    contentHtml,
+    clinicMeta,
+  });
+
+  return { subject, html };
+};
+
+/**
+ * 7. Doctor / Staff Alert for New Appointment Booking
+ */
+export const renderDoctorAppointmentAlert = ({ appointment, treatment }, clinicMeta = {}) => {
+  const rawTreatmentTitle = treatment?.title || 'Clinical Consultation';
+  const rawClinicName = clinicMeta?.clinicName || 'SkinGlow Clinic';
+  const treatmentTitle = escapeHtml(rawTreatmentTitle);
+  const formattedDate = formatDateTime(appointment.preferred_date_time);
+  const safePatientName = escapeHtml(appointment.patient_name);
+  const safeEmail = escapeHtml(appointment.email);
+  const safePhone = escapeHtml(appointment.phone);
+  const safeMessage = escapeHtml(appointment.message);
+  const safeClinicName = escapeHtml(rawClinicName);
+  const clientUrl = escapeHtml(process.env.CLIENT_URL || 'http://localhost:3000');
+
+  const subject = `[New Appointment Alert] #${appointment.id} - ${safePatientName} (${rawTreatmentTitle})`;
+
+  const contentHtml = `
+    <div style="border-bottom: 2px solid #3b82f6; padding-bottom: 12px; margin-bottom: 20px;">
+      <h2 style="color: #1a1a2e; margin: 0; font-size: 18px;">New Patient Appointment Booked</h2>
+      <p style="color: #6b7280; margin: 4px 0 0 0; font-size: 13px;">Immediate clinical notification</p>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px;">
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280; width: 140px;"><strong>Booking Ref:</strong></td>
+        <td style="padding: 6px 0; color: #1a1a2e; font-weight: 700;">#APPT-${appointment.id}</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280;"><strong>Patient Name:</strong></td>
+        <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">${safePatientName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280;"><strong>Contact Mobile:</strong></td>
+        <td style="padding: 6px 0; color: #1a1a2e;"><a href="tel:${safePhone}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${safePhone}</a></td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280;"><strong>Email Address:</strong></td>
+        <td style="padding: 6px 0;"><a href="mailto:${safeEmail}" style="color: #c9a96e; text-decoration: none;">${safeEmail}</a></td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280;"><strong>Procedure:</strong></td>
+        <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">${treatmentTitle}</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280;"><strong>Requested Slot:</strong></td>
+        <td style="padding: 6px 0; color: #c9a96e; font-weight: 700;">${formattedDate}</td>
+      </tr>
+      ${Number(treatment?.price) > 0 ? `
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280;"><strong>Procedure Fee:</strong></td>
+        <td style="padding: 6px 0; color: #1a1a2e; font-weight: 600;">₹${Number(treatment.price).toLocaleString('en-IN')}</td>
+      </tr>` : ''}
+      ${treatment?.duration ? `
+      <tr>
+        <td style="padding: 6px 0; color: #6b7280;"><strong>Est. Duration:</strong></td>
+        <td style="padding: 6px 0; color: #1a1a2e;">${escapeHtml(treatment.duration)}</td>
+      </tr>` : ''}
+    </table>
+
+    <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 14px; border-radius: 4px; margin: 16px 0;">
+      <p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.6;">
+        <strong>Patient Notes:</strong><br />${safeMessage || 'No specific notes provided.'}
+      </p>
+    </div>
+
+    <div style="text-align: center; margin: 28px 0 10px 0;">
+      <a href="${clientUrl}/admin/appointments" style="background-color: #1a1a2e; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block;">
+        Review Appointment in Admin Portal →
+      </a>
+    </div>
+  `;
+
+  const html = baseEmailLayout({
+    headerTitle: safeClinicName,
+    headerSubtitle: 'New Appointment Booking Notification',
+    contentHtml,
+    clinicMeta,
+  });
+
+  return { subject, html };
+};
+
+/**
  * Master Template Factory
  * Dispatches payload to the corresponding renderer based on action
  */
@@ -477,6 +630,10 @@ export const getEmailTemplate = (action, payload, clinicMeta = {}) => {
       return renderAppointmentCancelled(payload, clinicMeta);
     case EMAIL_ACTIONS.INQUIRY_NOTIFICATION:
       return renderInquiryNotification(payload, clinicMeta);
+    case EMAIL_ACTIONS.INQUIRY_CONFIRMATION:
+      return renderInquiryConfirmation(payload, clinicMeta);
+    case EMAIL_ACTIONS.APPOINTMENT_ALERT_DOCTOR:
+      return renderDoctorAppointmentAlert(payload, clinicMeta);
     default:
       throw new Error(`Unknown email template action: ${action}`);
   }

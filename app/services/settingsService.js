@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import { SiteSetting, UserMaster } from '../models/index.js';
+import { ROLE_GROUPS } from '../constants/roles.js';
 
 export const getPublicSettings = async () => {
   const settingsRecords = await SiteSetting.findAll({
@@ -15,7 +16,7 @@ export const getPublicSettings = async () => {
   try {
     const leadAdmin = await UserMaster.findOne({
       where: {
-        role: { [Op.in]: [0, 1] },
+        role: { [Op.in]: ROLE_GROUPS.ADMINS_ONLY },
         is_active: 1,
         profile_image: { [Op.ne]: null },
       },
@@ -54,7 +55,7 @@ export const getAllAdminSettings = async () => {
   try {
     const leadAdmin = await UserMaster.findOne({
       where: {
-        role: { [Op.in]: [0, 1] },
+        role: { [Op.in]: ROLE_GROUPS.ADMINS_ONLY },
         is_active: 1,
         profile_image: { [Op.ne]: null },
       },

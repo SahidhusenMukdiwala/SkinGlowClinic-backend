@@ -41,6 +41,9 @@ export const env = {
     USER: process.env.SMTP_USER || '',
     PASS: process.env.SMTP_PASS || '',
     FROM: process.env.SMTP_FROM || 'SkinGlow Clinic <noreply@skinglow.com>',
-    CLINIC_NOTIFICATION_EMAIL: process.env.CLINIC_NOTIFICATION_EMAIL || 'admin@skinglow.com',
+    CLINIC_NOTIFICATION_EMAIL: process.env.CLINIC_NOTIFICATION_EMAIL,
+    DOC_EMAIL: process.env.Doc_EMAIL || process.env.DOC_EMAIL,
   },
+
+  DOC_EMAIL: process.env.Doc_EMAIL || process.env.DOC_EMAIL,
 };

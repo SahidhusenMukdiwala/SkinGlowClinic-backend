@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import { UserMaster, SessionMaster, Appointment, Treatment } from '../models/index.js';
+import { ROLES } from '../constants/roles.js';
 
 /**
  * Get paginated list of customers (role: 2) for Admin Console with search and filters
@@ -11,9 +12,9 @@ export const getAdminCustomers = async (query = {}) => {
   const parsedLimit = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
   const offset = (parsedPage - 1) * parsedLimit;
 
-  // Base condition: Strictly customer role 2
+  // Base condition: Strictly customer role
   const where = {
-    role: 2,
+    role: ROLES.CUSTOMER,
   };
 
   // Status filtering: 'all', '1'/'active', '0'/'inactive'
@@ -54,9 +55,9 @@ export const getAdminCustomers = async (query = {}) => {
       limit: parsedLimit,
       offset,
     }),
-    UserMaster.count({ where: { role: 2 } }),
-    UserMaster.count({ where: { role: 2, is_active: 1 } }),
-    UserMaster.count({ where: { role: 2, is_active: 0 } }),
+    UserMaster.count({ where: { role: ROLES.CUSTOMER } }),
+    UserMaster.count({ where: { role: ROLES.CUSTOMER, is_active: 1 } }),
+    UserMaster.count({ where: { role: ROLES.CUSTOMER, is_active: 0 } }),
   ]);
 
   return {
@@ -80,7 +81,7 @@ export const getAdminCustomers = async (query = {}) => {
  */
 export const getCustomerById = async (id) => {
   const customer = await UserMaster.findOne({
-    where: { id, role: 2 },
+    where: { id, role: ROLES.CUSTOMER },
     attributes: ['id', 'full_name', 'email', 'mobile', 'role', 'is_active', 'createdAt', 'updatedAt'],
   });
 
@@ -120,7 +121,7 @@ export const getCustomerById = async (id) => {
  */
 export const updateCustomerStatus = async (id, isActive) => {
   const customer = await UserMaster.findOne({
-    where: { id, role: 2 },
+    where: { id, role: ROLES.CUSTOMER },
   });
 
   if (!customer) {

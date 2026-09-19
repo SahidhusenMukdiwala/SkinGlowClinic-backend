@@ -129,11 +129,10 @@ export const createAppointment = async (data) => {
       admin_notes: null,
     }, { transaction: t });
 
-    // Asynchronously dispatch email to patient only
+    // Asynchronously dispatch email to both patient and doctor
     t.afterCommit(() => {
       sendAppointmentConfirmation({ appointment, treatment }).catch(() => {});
-      // Admin alert disabled as per requirement:
-      // sendAppointmentAlert({ appointment, treatment }).catch(() => {});
+      sendAppointmentAlert({ appointment, treatment }).catch(() => {});
     });
 
     return {

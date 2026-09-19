@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import { Inquiry } from '../models/index.js';
-import { sendInquiryNotification } from '../utils/email.js';
+import { sendInquiryNotification, sendInquiryConfirmation } from '../utils/email.js';
 
 export const createInquiry = async (data) => {
   const inquiry = await Inquiry.create({
@@ -12,8 +12,11 @@ export const createInquiry = async (data) => {
     is_read: 0,
   });
 
-  // Trigger asynchronous email alert to clinic (non-blocking)
-  sendInquiryNotification(inquiry).catch(() => {});
+  // Trigger non-blocking asynchronous email notifications to both user and doctor
+  Promise.allSettled([
+    sendInquiryConfirmation(inquiry),
+    sendInquiryNotification(inquiry),
+  ]).catch(() => {});
 
   return inquiry;
 };

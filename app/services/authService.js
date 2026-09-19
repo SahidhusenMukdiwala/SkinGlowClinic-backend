@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { UserMaster, SessionMaster } from '../models/index.js';
+import { ROLES } from '../constants/roles.js';
 import { env } from '../config/env.js';
 
 export const loginAdmin = async ({ identifier, password, ip }) => {
@@ -117,13 +118,13 @@ export const registerCustomer = async ({ full_name, email, mobile, password, ip 
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  // Create user with customer role 2
+  // Create user with customer role
   const user = await UserMaster.create({
     full_name: full_name.trim(),
     email: cleanEmail,
     mobile: cleanMobile,
     password: hashedPassword,
-    role: 2, // 2 = Customer / Patient
+    role: ROLES.CUSTOMER,
     is_active: 1,
   });
 

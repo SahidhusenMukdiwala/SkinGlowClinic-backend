@@ -30,8 +30,20 @@ const getTransporter = () => {
   return transporter;
 };
 
-const getFromEmail = () => env.SMTP?.FROM || env.SMTP_FROM || 'SkinGlow Clinic <noreply@skinglow.com>';
-const getClinicEmail = () => env.SMTP?.CLINIC_NOTIFICATION_EMAIL || env.CLINIC_NOTIFICATION_EMAIL || env.SMTP?.USER || 'admin@skinglow.com';
+const getFromEmail = (clinicName = 'SkinGlow Clinic') => {
+  const smtpUser = env.SMTP?.USER || env.SMTP_USER;
+  const rawFrom = env.SMTP?.FROM || env.SMTP_FROM;
+  if (!rawFrom || rawFrom.includes('clinic-email@gmail.com')) {
+    return smtpUser ? `"${clinicName}" <${smtpUser}>` : `"${clinicName}" <noreply@skinglow.com>`;
+  }
+  return rawFrom;
+};
+
+export const getDoctorEmail = () => {
+  return process.env.Doc_EMAIL;
+};
+
+const getClinicEmail = () => getDoctorEmail();
 
 /**
  * Fetch dynamic clinic and doctor details for email templates from site settings
@@ -67,7 +79,10 @@ export const getClinicMetadata = async () => {
     // Sender "From" header
     const smtpFromEnv = env.SMTP?.FROM || env.SMTP_FROM;
     const smtpUser = env.SMTP?.USER || env.SMTP_USER || 'noreply@skinglowclinic.com';
-    const fromEmail = smtpFromEnv || `"${clinicName}" <${smtpUser}>`;
+    let fromEmail = smtpFromEnv;
+    if (!fromEmail || fromEmail.includes('clinic-email@gmail.com')) {
+      fromEmail = `"${clinicName}" <${smtpUser}>`;
+    }
 
     return {
       doctorName,
@@ -215,52 +230,62 @@ export const sendAppointmentCancellation = async ({ appointment, treatment, reas
 };
 
 /**
- * 5. Inquiry Notification for Staff
- * Dispatched on new patient contact form submission.
+ * 5. Inquiry Confirmation for Patient
+ * Dispatched to the user when they submit a message via the contact page.
+ */
+export const sendInquiryConfirmation = async (inquiry) => {
+  if (!inquiry?.email) {
+    logger.warn('Cannot send inquiry confirmation: patient email is missing (Inquiry #%s)', inquiry?.id);
+    return;
+  }
+  return sendActionEmail({
+    to: inquiry.email,
+    action: EMAIL_ACTIONS.INQUIRY_CONFIRMATION,
+    payload: { inquiry },
+  }).catch((err) => {
+    logger.error('Failed to send inquiry confirmation email to user (%s): %s', inquiry.email, err.message);
+  });
+};
+
+/**
+ * 6. Inquiry Alert for Doctor / Clinic Staff
+ * Dispatched to Doc_EMAIL on new patient contact form submission.
  */
 export const sendInquiryNotification = async (inquiry) => {
   const meta = await getClinicMetadata();
-  const to = meta.clinicEmail || getClinicEmail();
+  const to = getDoctorEmail();
   const { subject, html } = getEmailTemplate(EMAIL_ACTIONS.INQUIRY_NOTIFICATION, { inquiry }, meta);
   return sendMail({
     to,
     from: meta.fromEmail,
     subject,
     html,
-    logContext: `Inquiry #${inquiry.id} staff alert`,
+    logContext: `Inquiry #${inquiry.id} doctor alert to ${to}`,
   }).catch((err) => {
-    logger.error('Failed to send inquiry notification email: %s', err.message);
+    logger.error('Failed to send inquiry notification email to doctor (%s): %s', to, err.message);
   });
 };
 
 /**
- * 6. Internal Staff Alert for New Appointment
+ * 7. Doctor / Clinical Staff Alert for New Appointment
+ * Dispatched to Doc_EMAIL when a patient reserves a slot.
  */
 export const sendAppointmentAlert = async ({ appointment, treatment }) => {
   const meta = await getClinicMetadata();
-  const to = meta.clinicEmail || getClinicEmail();
-  const treatmentTitle = escapeHtml(treatment?.title || 'Clinical Consultation');
-  const safePatientName = escapeHtml(appointment?.patient_name);
-  const subject = `[New Appointment Alert] #${appointment?.id} - ${safePatientName} (${treatmentTitle})`;
-
-  const html = getEmailTemplate(EMAIL_ACTIONS.INQUIRY_NOTIFICATION, {
-    inquiry: {
-      id: appointment?.id,
-      name: appointment?.patient_name,
-      phone: appointment?.phone,
-      email: appointment?.email,
-      subject: `New Booking: ${treatmentTitle}`,
-      message: appointment?.message || 'No additional note',
-    },
-  }, meta).html;
+  const to = getDoctorEmail();
+  const { subject, html } = getEmailTemplate(
+    EMAIL_ACTIONS.APPOINTMENT_ALERT_DOCTOR,
+    { appointment, treatment },
+    meta
+  );
 
   return sendMail({
     to,
     from: meta.fromEmail,
     subject,
     html,
-    logContext: `Staff alert for Appt #${appointment?.id}`,
+    logContext: `Doctor alert for Appt #${appointment?.id} to ${to}`,
   }).catch((err) => {
-    logger.error('Failed to send staff appointment alert: %s', err.message);
+    logger.error('Failed to send doctor appointment alert to %s: %s', to, err.message);
   });
 };
