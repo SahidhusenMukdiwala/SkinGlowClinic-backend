@@ -10,7 +10,7 @@ import { updateProfileSchema } from '../validators/profile.validator.js';
 const router = Router();
 
 router.post('/login', authLimiter, validate(loginSchema), authController.login);
-router.post('/register', authLimiter, validate(registerCustomerSchema), authController.register);
+router.post('/register', authLimiter, upload.single('profile_image'), validate(registerCustomerSchema), authController.register);
 router.get('/me', authenticate, requireAnyAuthenticated, authController.getMe);
 router.put('/profile', authenticate, requireAnyAuthenticated, upload.single('profile_image'), validate(updateProfileSchema), authController.updateProfile);
 router.patch('/profile', authenticate, requireAnyAuthenticated, upload.single('profile_image'), validate(updateProfileSchema), authController.updateProfile);

@@ -21,6 +21,15 @@ export const login = async (req, res, next) => {
 
 export const register = async (req, res, next) => {
   try {
+    if (!req.file || !req.file.buffer) {
+      const error = new Error('Profile image is required for registration.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const uploadRes = await uploadBufferToCloudinary(req.file.buffer, 'skinglowclinic/profiles');
+    const profile_image = uploadRes.secure_url;
+
     const { full_name, email, mobile, password } = req.body;
 
     const result = await authService.registerCustomer({
@@ -28,6 +37,7 @@ export const register = async (req, res, next) => {
       email,
       mobile,
       password,
+      profile_image,
       ip: req.ip || req.socket?.remoteAddress,
     });
 

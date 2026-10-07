@@ -1,3 +1,5 @@
+import { env } from '../config/env.js';
+
 /**
  * Centralized HTML Email Template Engine for SkinGlow Clinic
  * Provides secure escaping, responsive layout shell, and action-driven template generation.
@@ -282,12 +284,13 @@ export const renderAppointmentConfirmed = ({ appointment, treatment }, clinicMet
 /**
  * 3. Appointment Completed (Post-Treatment Follow-up & Thank You)
  */
-export const renderAppointmentCompleted = ({ appointment, treatment }, clinicMeta = {}) => {
+export const renderAppointmentCompleted = ({ appointment, treatment, reviewToken }, clinicMeta = {}) => {
   const rawTreatmentTitle = treatment?.title || 'Clinical Consultation';
   const rawClinicName = clinicMeta?.clinicName || 'SkinGlow Clinic';
   const treatmentTitle = escapeHtml(rawTreatmentTitle);
-  const safePatientName = escapeHtml(appointment.patient_name);
+  const safePatientName = escapeHtml(appointment.patient_name || appointment.user?.full_name || 'Valued Patient');
   const safeClinicName = escapeHtml(rawClinicName);
+  const clientUrl = clinicMeta?.clientUrl || env.CLIENT_URL || 'http://localhost:3000';
 
   const subject = `Thank You for Visiting ${rawClinicName} (#APPT-${appointment.id})`;
 
@@ -308,11 +311,25 @@ export const renderAppointmentCompleted = ({ appointment, treatment }, clinicMet
       </ul>
     </div>
 
-    <div style="background-color: #fdfbf7; border: 1px solid #f0e6d6; border-radius: 8px; padding: 18px; text-align: center; margin-bottom: 8px;">
-      <h4 style="margin: 0 0 8px 0; color: #1a1a2e; font-size: 15px;">How was your experience?</h4>
-      <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
-        Your feedback helps us continuously deliver exceptional aesthetic care. If you have any post-care questions, our helpline is always available.
+    <div style="background-color: #fdfbf7; border: 1px solid #f0e6d6; border-radius: 8px; padding: 22px; text-align: center; margin-bottom: 8px;">
+      <h4 style="margin: 0 0 8px 0; color: #1a1a2e; font-size: 16px;">How was your experience?</h4>
+      <p style="margin: 0 0 16px 0; font-size: 13px; color: #6b7280; line-height: 1.5;">
+        Your feedback helps us continuously deliver exceptional aesthetic care. We would love to hear your thoughts!
       </p>
+      ${reviewToken ? `
+      <div style="margin: 18px 0 8px 0;">
+        <a href="${clientUrl}/write-review?token=${reviewToken}"
+           style="background: linear-gradient(135deg, #c9a96e 0%, #b8944f 100%);
+                  color: #1a1a2e; padding: 14px 32px; border-radius: 10px;
+                  text-decoration: none; font-weight: 700; font-size: 14px;
+                  display: inline-block; letter-spacing: 0.3px; box-shadow: 0 4px 10px rgba(201, 169, 110, 0.3);">
+          ⭐ Write a Review
+        </a>
+        <p style="margin: 10px 0 0 0; font-size: 12px; color: #9ca3af;">
+          Note: This review link is valid for <strong>24 hours</strong>.
+        </p>
+      </div>
+      ` : ''}
     </div>
   `;
 

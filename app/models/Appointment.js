@@ -11,19 +11,8 @@ export const Appointment = sequelize.define('appointments', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-  patient_name: {
-    type: DataTypes.STRING(255),
-    allowNull: false,
-  },
-  email: {
-    type: DataTypes.STRING(255),
-    allowNull: false,
-    validate: {
-      isEmail: true,
-    },
-  },
-  phone: {
-    type: DataTypes.STRING(20),
+  user_id: {
+    type: DataTypes.INTEGER,
     allowNull: false,
   },
   preferred_date_time: {

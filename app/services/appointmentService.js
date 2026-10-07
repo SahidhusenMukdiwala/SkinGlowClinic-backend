@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { sequelize, Appointment, Treatment } from '../models/index.js';
+import { sequelize, Appointment, Treatment, UserMaster } from '../models/index.js';
 import { 
   sendAppointmentConfirmation, 
   sendAppointmentConfirmed,
@@ -7,6 +7,7 @@ import {
   sendAppointmentAlert,
   sendAppointmentCancellation 
 } from '../utils/email.js';
+import { generateReviewToken } from '../utils/reviewToken.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -76,7 +77,20 @@ export const createAppointment = async (data) => {
     throw error;
   }
 
-  // 2. Verify appointment date is in the future
+  // 2. Verify patient user exists
+  const user = await UserMaster.findOne({
+    where: {
+      id: data.user_id,
+      is_active: 1,
+    },
+  });
+  if (!user) {
+    const error = new Error('Patient account not found or inactive.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 3. Verify appointment date is in the future
   const appointmentDate = new Date(data.preferred_date_time);
   if (isNaN(appointmentDate.getTime())) {
     const error = new Error('Invalid appointment date and time format.');
@@ -90,7 +104,7 @@ export const createAppointment = async (data) => {
     throw error;
   }
 
-  // 3. Managed Transaction with row-level concurrency lock
+  // 4. Managed Transaction with row-level concurrency lock
   return await sequelize.transaction(async (t) => {
     // Check if slot within 25 minutes window is already occupied by active appointment
     const slotStart = new Date(appointmentDate.getTime() - 25 * 60 * 1000);
@@ -118,10 +132,8 @@ export const createAppointment = async (data) => {
 
     // Insert new appointment
     const appointment = await Appointment.create({
+      user_id: user.id,
       treatment_id: treatment.id,
-      patient_name: data.patient_name.trim(),
-      email: data.email.trim().toLowerCase(),
-      phone: data.phone.trim(),
       preferred_date_time: appointmentDate,
       message: data.message ? data.message.trim() : '',
       status: 0, // Pending
@@ -129,18 +141,27 @@ export const createAppointment = async (data) => {
       admin_notes: null,
     }, { transaction: t });
 
+    const appointmentWithUser = {
+      ...appointment.toJSON(),
+      patient_name: user.full_name,
+      email: user.email,
+      phone: user.mobile,
+      user,
+    };
+
     // Asynchronously dispatch email to both patient and doctor
     t.afterCommit(() => {
-      sendAppointmentConfirmation({ appointment, treatment }).catch(() => {});
-      sendAppointmentAlert({ appointment, treatment }).catch(() => {});
+      sendAppointmentConfirmation({ appointment: appointmentWithUser, treatment }).catch(() => {});
+      sendAppointmentAlert({ appointment: appointmentWithUser, treatment }).catch(() => {});
     });
 
     return {
       id: appointment.id,
-      reference_id: (appointment.id),
-      patient_name: appointment.patient_name,
-      email: appointment.email,
-      phone: appointment.phone,
+      reference_id: appointment.id,
+      user_id: user.id,
+      patient_name: user.full_name,
+      email: user.email,
+      phone: user.mobile,
       preferred_date_time: appointment.preferred_date_time,
       status: appointment.status,
       message: appointment.message,
@@ -200,13 +221,13 @@ export const getAdminAppointments = async ({
     };
   }
 
-  // Search filtering (patient_name, email, phone)
+  // Search filtering (patient name, email, mobile via user association)
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
     where[Op.or] = [
-      { patient_name: { [Op.like]: term } },
-      { email: { [Op.like]: term } },
-      { phone: { [Op.like]: term } },
+      sequelize.where(sequelize.col('user.full_name'), { [Op.like]: term }),
+      sequelize.where(sequelize.col('user.email'), { [Op.like]: term }),
+      sequelize.where(sequelize.col('user.mobile'), { [Op.like]: term }),
     ];
   }
 
@@ -221,13 +242,24 @@ export const getAdminAppointments = async ({
         as: 'treatment',
         attributes: ['id', 'title', 'slug', 'category_id', 'price', 'duration'],
       },
+      {
+        model: UserMaster,
+        as: 'user',
+        attributes: ['id', 'full_name', 'email', 'mobile', 'profile_image'],
+      },
     ],
   });
 
-  const formattedRows = rows.map((appt) => ({
-    ...appt.toJSON(),
-    reference_id: appt.id,
-  }));
+  const formattedRows = rows.map((appt) => {
+    const raw = appt.toJSON();
+    return {
+      ...raw,
+      reference_id: appt.id,
+      patient_name: raw.user?.full_name || '',
+      email: raw.user?.email || '',
+      phone: raw.user?.mobile || '',
+    };
+  });
 
   return {
     appointments: formattedRows,
@@ -253,6 +285,11 @@ export const getAppointmentById = async (id) => {
         as: 'treatment',
         attributes: ['id', 'title', 'slug', 'category_id', 'price', 'duration'],
       },
+      {
+        model: UserMaster,
+        as: 'user',
+        attributes: ['id', 'full_name', 'email', 'mobile', 'profile_image'],
+      },
     ],
   });
 
@@ -262,9 +299,13 @@ export const getAppointmentById = async (id) => {
     throw error;
   }
 
+  const raw = appointment.toJSON();
   return {
-    ...appointment.toJSON(),
+    ...raw,
     reference_id: appointment.id,
+    patient_name: raw.user?.full_name || '',
+    email: raw.user?.email || '',
+    phone: raw.user?.mobile || '',
   };
 };
 
@@ -282,6 +323,11 @@ export const updateAppointment = async (id, data) => {
         model: Treatment,
         as: 'treatment',
         attributes: ['id', 'title', 'slug', 'category_id', 'price', 'duration'],
+      },
+      {
+        model: UserMaster,
+        as: 'user',
+        attributes: ['id', 'full_name', 'email', 'mobile', 'profile_image'],
       },
     ],
   });
@@ -310,28 +356,45 @@ export const updateAppointment = async (id, data) => {
 
   await appointment.update(updates);
 
+  // Prepare appointment object with patient details for emails
+  const apptForEmail = {
+    ...appointment.toJSON(),
+    ...updates,
+    patient_name: appointment.user?.full_name || '',
+    email: appointment.user?.email || '',
+    phone: appointment.user?.mobile || '',
+    user: appointment.user,
+    treatment: appointment.treatment,
+  };
+
   // Dispatch action-based notification email to patient on status transition
   if (updates.status !== undefined && updates.status !== previousStatus) {
     if (updates.status === 1) {
       // Status = 1: Confirmed / Approved
       sendAppointmentConfirmed({
-        appointment,
+        appointment: apptForEmail,
         treatment: appointment.treatment,
       }).catch((err) => {
         logger.error('Failed to dispatch appointment confirmation email for #%s: %s', id, err.message);
       });
     } else if (updates.status === 2) {
       // Status = 2: Completed
+      const reviewToken = generateReviewToken({
+        appointmentId: appointment.id,
+        userId: appointment.user_id,
+      });
+
       sendAppointmentCompleted({
-        appointment,
+        appointment: apptForEmail,
         treatment: appointment.treatment,
+        reviewToken,
       }).catch((err) => {
         logger.error('Failed to dispatch appointment completion email for #%s: %s', id, err.message);
       });
     } else if (updates.status === 3) {
       // Status = 3: Cancelled
       sendAppointmentCancellation({
-        appointment,
+        appointment: apptForEmail,
         treatment: appointment.treatment,
         reason: reason || updates.admin_notes || appointment.admin_notes,
       }).catch((err) => {

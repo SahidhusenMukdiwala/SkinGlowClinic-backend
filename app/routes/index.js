@@ -9,6 +9,7 @@ import authRoutes from './auth.routes.js';
 
 import appointmentRoutes from './appointment.routes.js';
 import adminRoutes from './admin.routes.js';
+import reviewRoutes from './review.routes.js';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/blogs', blogRoutes);
 // Auth & Admin Routes
 router.use('/auth', authRoutes);
 router.use('/admin', adminRoutes);
+router.use('/reviews', reviewRoutes);
 
 export default router;
 

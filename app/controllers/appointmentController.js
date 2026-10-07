@@ -3,7 +3,10 @@ import { successResponse } from '../utils/responseHelper.js';
 
 export const bookAppointment = async (req, res, next) => {
   try {
-    const appointment = await appointmentService.createAppointment(req.body);
+    const appointment = await appointmentService.createAppointment({
+      ...req.body,
+      user_id: req.user.id,
+    });
     return successResponse(
       res,
       appointment,

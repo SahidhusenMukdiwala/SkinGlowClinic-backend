@@ -25,6 +25,7 @@ export const env = {
     EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
     REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'skinglow_jwt_refresh_dev_key',
     REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    REVIEW_SECRET: process.env.JWT_REVIEW_SECRET || (process.env.JWT_SECRET ? process.env.JWT_SECRET + '_review' : 'skinglow_review_secret_2026'),
   },
 
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000',

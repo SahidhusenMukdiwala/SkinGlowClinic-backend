@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Testimonial } from '../models/index.js';
+import { Testimonial, Appointment, Treatment, UserMaster } from '../models/index.js';
 import { uploadBufferToCloudinary } from '../utils/cloudinary.js';
 
 const DEFAULT_PATIENT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
@@ -138,3 +138,95 @@ export const deleteTestimonial = async (id) => {
     message: 'Testimonial deleted successfully',
   };
 };
+
+/**
+ * Submit customer review for completed appointment
+ */
+export const submitCustomerReview = async ({ userId, appointmentId, reviewText, rating }) => {
+  // 1. Verify the appointment exists, is not deleted, and status = 2 (Completed)
+  const appointment = await Appointment.findOne({
+    where: {
+      id: appointmentId,
+      is_delete: 0,
+    },
+    include: [
+      {
+        model: Treatment,
+        as: 'treatment',
+        attributes: ['id', 'title'],
+      },
+    ],
+  });
+
+  if (!appointment) {
+    const error = new Error('Appointment not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (appointment.status !== 2) {
+    const error = new Error('Reviews can only be submitted for completed treatments.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 2. Verify appointment belongs to this user
+  if (Number(appointment.user_id) !== Number(userId)) {
+    const error = new Error('You can only review appointments booked under your own account.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 3. Check duplicate review for this appointment
+  const existingReview = await Testimonial.findOne({
+    where: {
+      appointment_id: appointmentId,
+      is_delete: 0,
+    },
+  });
+
+  if (existingReview) {
+    const error = new Error('You have already submitted a review for this appointment.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // 4. Fetch user details for name & profile_image
+  const user = await UserMaster.findOne({
+    where: { id: userId, is_active: 1 },
+  });
+
+  if (!user) {
+    const error = new Error('User profile not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 5. Create testimonial (is_active = 0 for admin moderation)
+  const testimonial = await Testimonial.create({
+    patient_name: user.full_name,
+    patient_image: user.profile_image || DEFAULT_PATIENT_AVATAR,
+    review_text: reviewText.trim(),
+    rating: parseInt(rating, 10),
+    user_id: user.id,
+    appointment_id: appointment.id,
+    is_active: 0, // Pending admin approval
+    is_delete: 0,
+  });
+
+  return testimonial;
+};
+
+/**
+ * Get review by appointment ID
+ */
+export const getReviewByAppointmentId = async (appointmentId) => {
+  return await Testimonial.findOne({
+    where: {
+      appointment_id: appointmentId,
+      is_delete: 0,
+    },
+    attributes: ['id', 'patient_name', 'patient_image', 'review_text', 'rating', 'is_active', 'createdAt'],
+  });
+};
+

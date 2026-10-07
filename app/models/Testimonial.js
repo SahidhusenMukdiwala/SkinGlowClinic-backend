@@ -27,6 +27,16 @@ export const Testimonial = sequelize.define('testimonials', {
       max: 5,
     },
   },
+  user_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+  },
+  appointment_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+  },
   is_active: {
     type: DataTypes.TINYINT,
     allowNull: true,

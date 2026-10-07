@@ -205,11 +205,11 @@ export const sendAppointmentConfirmed = async ({ appointment, treatment }) => {
  * 3. Appointment Completed (Status = 2)
  * Dispatched when admin marks the consultation as completed.
  */
-export const sendAppointmentCompleted = async ({ appointment, treatment }) => {
+export const sendAppointmentCompleted = async ({ appointment, treatment, reviewToken }) => {
   return sendActionEmail({
-    to: appointment?.email,
+    to: appointment?.email || appointment?.user?.email,
     action: EMAIL_ACTIONS.APPOINTMENT_COMPLETED,
-    payload: { appointment, treatment },
+    payload: { appointment, treatment, reviewToken },
   }).catch((err) => {
     logger.error('Failed to send appointment completion email: %s', err.message);
   });

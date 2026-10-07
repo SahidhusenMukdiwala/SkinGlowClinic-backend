@@ -86,7 +86,7 @@ export const loginAdmin = async ({ identifier, password, ip }) => {
   };
 };
 
-export const registerCustomer = async ({ full_name, email, mobile, password, ip }) => {
+export const registerCustomer = async ({ full_name, email, mobile, password, profile_image, ip }) => {
   const cleanEmail = (email || '').trim().toLowerCase();
   const cleanMobile = (mobile || '').trim();
   const digitsOnly = cleanMobile.replace(/\D/g, '');
@@ -126,6 +126,7 @@ export const registerCustomer = async ({ full_name, email, mobile, password, ip 
     password: hashedPassword,
     role: ROLES.CUSTOMER,
     is_active: 1,
+    profile_image: profile_image || null,
   });
 
   // Generate tokens
