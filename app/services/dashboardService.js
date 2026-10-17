@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Appointment, Inquiry, Treatment } from '../models/index.js';
+import { Appointment, Inquiry, Treatment, UserMaster } from '../models/index.js';
 
 export const getDashboardStats = async () => {
   const todayStart = new Date();
@@ -17,9 +17,9 @@ export const getDashboardStats = async () => {
     completedAppointments,
     totalInquiries,
     unreadInquiriesCount,
-    pendingAppointments,
+    pendingAppointmentsRaw,
     unreadInquiries,
-    recentAppointments,
+    recentAppointmentsRaw,
     recentInquiries,
   ] = await Promise.all([
     Appointment.count({ where: { is_delete: 0 } }),
@@ -47,6 +47,11 @@ export const getDashboardStats = async () => {
           as: 'treatment',
           attributes: ['id', 'title', 'slug', 'category_id'],
         },
+        {
+          model: UserMaster,
+          as: 'user',
+          attributes: ['id', 'full_name', 'email', 'mobile', 'profile_image'],
+        },
       ],
     }),
     // Unread Inquiries (is_read: 0)
@@ -66,6 +71,11 @@ export const getDashboardStats = async () => {
           as: 'treatment',
           attributes: ['id', 'title', 'slug', 'category_id'],
         },
+        {
+          model: UserMaster,
+          as: 'user',
+          attributes: ['id', 'full_name', 'email', 'mobile', 'profile_image'],
+        },
       ],
     }),
     // Recent Inquiries (all)
@@ -75,6 +85,17 @@ export const getDashboardStats = async () => {
       order: [['createdAt', 'DESC']],
     }),
   ]);
+
+  const mapAppointment = (appt) => {
+    const raw = appt.toJSON();
+    return {
+      ...raw,
+      reference_id: appt.id,
+      patient_name: raw.user?.full_name || '',
+      email: raw.user?.email || '',
+      phone: raw.user?.mobile || '',
+    };
+  };
 
   return {
     kpis: {
@@ -86,9 +107,9 @@ export const getDashboardStats = async () => {
       totalInquiries,
       unreadInquiries: unreadInquiriesCount,
     },
-    pendingAppointments,
+    pendingAppointments: pendingAppointmentsRaw.map(mapAppointment),
     unreadInquiries,
-    recentAppointments,
+    recentAppointments: recentAppointmentsRaw.map(mapAppointment),
     recentInquiries,
   };
 };

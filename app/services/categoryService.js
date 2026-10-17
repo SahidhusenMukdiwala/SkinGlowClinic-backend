@@ -19,7 +19,7 @@ export const getActiveCategories = async () => {
  * Get all non-deleted categories for Admin console with treatment counts
  */
 export const getAdminCategories = async (query = {}) => {
-  const { search, status } = query;
+  const { search, status, page = 1, limit = 10 } = query;
   const where = { is_delete: 0 };
 
   if (search && search.trim() !== '') {
@@ -30,7 +30,13 @@ export const getAdminCategories = async (query = {}) => {
     where.status = parseInt(status, 10);
   }
 
-  return Category.findAll({
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 10));
+  const offset = (pageNum - 1) * limitNum;
+
+  const totalCount = await Category.count({ where });
+
+  const rows = await Category.findAll({
     where,
     attributes: [
       'id',
@@ -51,7 +57,18 @@ export const getAdminCategories = async (query = {}) => {
     ],
     group: ['categories.id'],
     order: [['id', 'ASC']],
+    limit: limitNum,
+    offset,
+    subQuery: false,
   });
+
+  return {
+    categories: rows,
+    total: totalCount,
+    totalPages: Math.ceil(totalCount / limitNum),
+    currentPage: pageNum,
+    limit: limitNum,
+  };
 };
 
 /**

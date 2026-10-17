@@ -7,8 +7,15 @@ import {
   sendAppointmentAlert,
   sendAppointmentCancellation 
 } from '../utils/email.js';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { ROLES } from '../constants/roles.js';
 import { generateReviewToken } from '../utils/reviewToken.js';
 import { logger } from '../utils/logger.js';
+
+// In-flight locking sets to serialize concurrent bookings and prevent race-condition multi-booking
+const activeUserBookings = new Set();
+const activeSlotBookings = new Set();
 
 /**
  * Retrieve all booked time slots for a given date (YYYY-MM-DD)
@@ -42,15 +49,13 @@ export const getBookedSlots = async (dateStr) => {
   for (const appt of appointments) {
     const d = new Date(appt.preferred_date_time);
     const istDate = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    const utcDate = d.toISOString().split('T')[0];
 
-    if (istDate === dateStr || utcDate === dateStr) {
-      const activeZone = istDate === dateStr ? 'Asia/Kolkata' : 'UTC';
+    if (istDate === dateStr) {
       const formattedTime = d.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
-        timeZone: activeZone,
+        timeZone: 'Asia/Kolkata',
       });
       bookedSlots.add(formattedTime);
     }
@@ -60,7 +65,8 @@ export const getBookedSlots = async (dateStr) => {
 };
 
 /**
- * Atomically create an appointment with row-level lock to prevent double booking race conditions
+ * Atomically create an appointment with row-level lock and anti-abuse safeguards
+ * to prevent double bookings, race conditions, and user appointment flooding.
  */
 export const createAppointment = async (data) => {
   // 1. Verify treatment exists
@@ -90,7 +96,7 @@ export const createAppointment = async (data) => {
     throw error;
   }
 
-  // 3. Verify appointment date is in the future
+  // 3. Verify appointment date is in a valid future window
   const appointmentDate = new Date(data.preferred_date_time);
   if (isNaN(appointmentDate.getTime())) {
     const error = new Error('Invalid appointment date and time format.');
@@ -98,84 +104,187 @@ export const createAppointment = async (data) => {
     throw error;
   }
 
-  if (appointmentDate.getTime() <= Date.now()) {
-    const error = new Error('Appointment date and time must be scheduled for a future slot.');
+  const now = Date.now();
+  if (appointmentDate.getTime() <= now + 30 * 60 * 1000) {
+    const error = new Error('Appointments must be scheduled at least 30 minutes in advance.');
     error.statusCode = 400;
     throw error;
   }
 
-  // 4. Managed Transaction with row-level concurrency lock
-  return await sequelize.transaction(async (t) => {
-    // Check if slot within 25 minutes window is already occupied by active appointment
-    const slotStart = new Date(appointmentDate.getTime() - 25 * 60 * 1000);
-    const slotEnd = new Date(appointmentDate.getTime() + 25 * 60 * 1000);
+  if (appointmentDate.getTime() > now + 90 * 24 * 60 * 60 * 1000) {
+    const error = new Error('Appointments can only be scheduled up to 90 days in advance.');
+    error.statusCode = 400;
+    throw error;
+  }
 
-    const existingAppointment = await Appointment.findOne({
-      where: {
-        preferred_date_time: {
-          [Op.between]: [slotStart, slotEnd],
-        },
-        status: {
-          [Op.in]: [0, 1], // 0 = Pending, 1 = Confirmed
-        },
-        is_delete: 0,
-      },
-      transaction: t,
-      lock: t.LOCK.UPDATE, // Enforces exclusive lock in MySQL
-    });
+  // 4. Concurrency Guard: in-flight mutex per user and target time slot
+  const userLockKey = `user_${user.id}`;
+  const slotDateKey = appointmentDate.toISOString().slice(0, 16);
+  const slotLockKey = `slot_${slotDateKey}`;
 
-    if (existingAppointment) {
-      const conflictError = new Error('This time slot was just reserved by another patient. Please select an alternate slot.');
-      conflictError.statusCode = 409; // HTTP 409 Conflict
-      throw conflictError;
-    }
+  if (activeUserBookings.has(userLockKey)) {
+    const error = new Error('An appointment request is currently being processed for your account. Please wait a moment.');
+    error.statusCode = 429;
+    throw error;
+  }
 
-    // Insert new appointment
-    const appointment = await Appointment.create({
+  if (activeSlotBookings.has(slotLockKey)) {
+    const conflictError = new Error('This time slot was just reserved by another patient. Please select an alternate slot.');
+    conflictError.statusCode = 409;
+    throw conflictError;
+  }
+
+  // 5. Anti-Abuse Guard: Cooldown check (prevent rapid sequential submissions within 15 seconds)
+  const recentUserBooking = await Appointment.findOne({
+    where: {
       user_id: user.id,
-      treatment_id: treatment.id,
-      preferred_date_time: appointmentDate,
-      message: data.message ? data.message.trim() : '',
-      status: 0, // Pending
-      is_delete: 0,
-      admin_notes: null,
-    }, { transaction: t });
-
-    const appointmentWithUser = {
-      ...appointment.toJSON(),
-      patient_name: user.full_name,
-      email: user.email,
-      phone: user.mobile,
-      user,
-    };
-
-    // Asynchronously dispatch email to both patient and doctor
-    t.afterCommit(() => {
-      sendAppointmentConfirmation({ appointment: appointmentWithUser, treatment }).catch(() => {});
-      sendAppointmentAlert({ appointment: appointmentWithUser, treatment }).catch(() => {});
-    });
-
-    return {
-      id: appointment.id,
-      reference_id: appointment.id,
-      user_id: user.id,
-      patient_name: user.full_name,
-      email: user.email,
-      phone: user.mobile,
-      preferred_date_time: appointment.preferred_date_time,
-      status: appointment.status,
-      message: appointment.message,
-      treatment: {
-        id: treatment.id,
-        title: treatment.title,
-        slug: treatment.slug,
-        price: treatment.price ?? 0,
-        duration: treatment.duration,
-        category_id: treatment.category_id,
-      },
-      createdAt: appointment.createdAt,
-    };
+      createdAt: { [Op.gte]: new Date(now - 15 * 1000) },
+    },
+    attributes: ['id'],
   });
+  if (recentUserBooking) {
+    const error = new Error('You recently submitted an appointment request. Please wait a moment before booking another.');
+    error.statusCode = 429;
+    throw error;
+  }
+
+  // 6. Anti-Abuse Guard: Maximum 3 active upcoming appointments per patient
+  const activeUpcomingCount = await Appointment.count({
+    where: {
+      user_id: user.id,
+      status: { [Op.in]: [0, 1] }, // 0 = Pending, 1 = Confirmed
+      is_delete: 0,
+      preferred_date_time: { [Op.gte]: new Date() },
+    },
+  });
+  if (activeUpcomingCount >= 3) {
+    const error = new Error('You have reached the maximum limit of 3 active upcoming appointments. Please attend or manage your existing appointments before booking another.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 7. Anti-Abuse Guard: Prevent same-day duplicate active appointment for the same user
+  const targetDayStart = new Date(appointmentDate);
+  targetDayStart.setHours(0, 0, 0, 0);
+  const targetDayEnd = new Date(appointmentDate);
+  targetDayEnd.setHours(23, 59, 59, 999);
+
+  const existingUserDayAppt = await Appointment.findOne({
+    where: {
+      user_id: user.id,
+      preferred_date_time: {
+        [Op.between]: [targetDayStart, targetDayEnd],
+      },
+      status: { [Op.in]: [0, 1] },
+      is_delete: 0,
+    },
+    attributes: ['id'],
+  });
+  if (existingUserDayAppt) {
+    const error = new Error('You already have an active appointment scheduled for this date. Please manage your existing appointment or select another day.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // 8. Managed Transaction with row-level lock and deadlock retry
+  activeUserBookings.add(userLockKey);
+  activeSlotBookings.add(slotLockKey);
+
+  try {
+    const executeBooking = async () => {
+      return await sequelize.transaction(async (t) => {
+        // Check if slot within 25 minutes window is already occupied by active appointment
+        const slotStart = new Date(appointmentDate.getTime() - 25 * 60 * 1000);
+        const slotEnd = new Date(appointmentDate.getTime() + 25 * 60 * 1000);
+
+        const existingAppointment = await Appointment.findOne({
+          where: {
+            preferred_date_time: {
+              [Op.between]: [slotStart, slotEnd],
+            },
+            status: {
+              [Op.in]: [0, 1], // 0 = Pending, 1 = Confirmed
+            },
+            is_delete: 0,
+          },
+          transaction: t,
+          lock: t.LOCK.UPDATE, // Enforces exclusive lock in MySQL
+        });
+
+        if (existingAppointment) {
+          const conflictError = new Error('This time slot was just reserved by another patient. Please select an alternate slot.');
+          conflictError.statusCode = 409; // HTTP 409 Conflict
+          throw conflictError;
+        }
+
+        // Insert new appointment
+        const appointment = await Appointment.create({
+          user_id: user.id,
+          treatment_id: treatment.id,
+          preferred_date_time: appointmentDate,
+          message: data.message ? data.message.trim() : '',
+          status: 0, // Pending
+          is_delete: 0,
+          admin_notes: null,
+        }, { transaction: t });
+
+        const appointmentWithUser = {
+          ...appointment.toJSON(),
+          patient_name: user.full_name,
+          email: user.email,
+          phone: user.mobile,
+          user,
+        };
+
+        // Asynchronously dispatch email to both patient and doctor
+        t.afterCommit(() => {
+          sendAppointmentConfirmation({ appointment: appointmentWithUser, treatment }).catch(() => {});
+          sendAppointmentAlert({ appointment: appointmentWithUser, treatment }).catch(() => {});
+        });
+
+        return {
+          id: appointment.id,
+          reference_id: appointment.id,
+          user_id: user.id,
+          patient_name: user.full_name,
+          email: user.email,
+          phone: user.mobile,
+          preferred_date_time: appointment.preferred_date_time,
+          status: appointment.status,
+          message: appointment.message,
+          treatment: {
+            id: treatment.id,
+            title: treatment.title,
+            slug: treatment.slug,
+            price: treatment.price ?? 0,
+            duration: treatment.duration,
+            category_id: treatment.category_id,
+          },
+          createdAt: appointment.createdAt,
+        };
+      });
+    };
+
+    let attempts = 0;
+    while (attempts < 3) {
+      try {
+        return await executeBooking();
+      } catch (err) {
+        attempts++;
+        const isDeadlock =
+          err.name === 'SequelizeDatabaseError' &&
+          (err.original?.code === 'ER_LOCK_DEADLOCK' || err.message?.includes('Deadlock'));
+        if (isDeadlock && attempts < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 50 * attempts));
+          continue;
+        }
+        throw err;
+      }
+    }
+  } finally {
+    activeUserBookings.delete(userLockKey);
+    activeSlotBookings.delete(slotLockKey);
+  }
 };
 
 /**
@@ -235,6 +344,8 @@ export const getAdminAppointments = async ({
     where,
     limit: limitNum,
     offset,
+    subQuery: false,
+    distinct: true,
     order: [['preferred_date_time', 'DESC']],
     include: [
       {
@@ -424,5 +535,155 @@ export const deleteAppointment = async (id) => {
 
   await appointment.update({ is_delete: 1 });
   return { id: parseInt(id, 10), softDeleted: true, message: 'Appointment deleted successfully' };
+};
+
+/**
+ * Create an appointment directly from the Admin Console (for walk-in patients or phone bookings).
+ * Links to an existing patient account if mobile/email matches, or creates a customer profile automatically.
+ */
+export const createAdminAppointment = async (data) => {
+  // 1. Verify treatment
+  const treatment = await Treatment.findOne({
+    where: {
+      id: data.treatment_id,
+      is_active: 1,
+      is_delete: 0,
+    },
+  });
+  if (!treatment) {
+    const error = new Error('The selected treatment is either unavailable or does not exist.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Parse appointment date
+  const appointmentDate = new Date(data.preferred_date_time);
+  if (isNaN(appointmentDate.getTime())) {
+    const error = new Error('Invalid appointment date and time format.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 3. Clean and resolve patient account
+  const cleanName = (data.patient_name || '').trim();
+  const rawMobile = (data.phone || '').trim();
+  const digitsOnly = rawMobile.replace(/\D/g, '');
+  const last10 = digitsOnly.slice(-10);
+  const formattedMobile = last10.length === 10 ? `+91 ${last10}` : rawMobile;
+  const cleanEmail = (data.email || '').trim().toLowerCase();
+
+  // Search existing user by email or mobile
+  const whereConditions = [];
+  if (cleanEmail) {
+    whereConditions.push({ email: cleanEmail });
+  }
+  if (last10.length >= 10) {
+    whereConditions.push({ mobile: last10 });
+    whereConditions.push({ mobile: `+91${last10}` });
+    whereConditions.push({ mobile: `+91 ${last10}` });
+    whereConditions.push({ mobile: { [Op.like]: `%${last10}%` } });
+  } else if (rawMobile) {
+    whereConditions.push({ mobile: rawMobile });
+  }
+
+  let user = null;
+  if (whereConditions.length > 0) {
+    user = await UserMaster.findOne({
+      where: {
+        [Op.or]: whereConditions,
+        role: ROLES.CUSTOMER,
+      },
+    });
+  }
+
+  // If user does not exist, create a new customer record
+  if (!user) {
+    const randomHex = crypto.randomBytes ? crypto.randomBytes(16).toString('hex') : Math.random().toString(36);
+    const dummyPassword = await bcrypt.hash(randomHex, 10);
+    const finalEmail = cleanEmail || `patient_${last10 || Date.now()}@skinglowclinic.local`;
+
+    user = await UserMaster.create({
+      full_name: cleanName,
+      email: finalEmail,
+      mobile: formattedMobile,
+      password: dummyPassword,
+      role: ROLES.CUSTOMER,
+      is_active: 1,
+    });
+  }
+
+  // 4. Create appointment inside transaction with collision checking
+  return await sequelize.transaction(async (t) => {
+    const slotStart = new Date(appointmentDate.getTime() - 25 * 60 * 1000);
+    const slotEnd = new Date(appointmentDate.getTime() + 25 * 60 * 1000);
+
+    const existingAppointment = await Appointment.findOne({
+      where: {
+        preferred_date_time: {
+          [Op.between]: [slotStart, slotEnd],
+        },
+        status: {
+          [Op.in]: [0, 1], // 0 = Pending, 1 = Confirmed
+        },
+        is_delete: 0,
+      },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    if (existingAppointment) {
+      const conflictError = new Error('This time slot is already reserved by another appointment. Please choose another time.');
+      conflictError.statusCode = 409;
+      throw conflictError;
+    }
+
+    const appointment = await Appointment.create({
+      user_id: user.id,
+      treatment_id: treatment.id,
+      preferred_date_time: appointmentDate,
+      message: data.message ? data.message.trim() : '',
+      status: data.status !== undefined ? parseInt(data.status, 10) : 1, // Default Confirmed (1)
+      is_delete: 0,
+      admin_notes: data.admin_notes ? data.admin_notes.trim() : 'Scheduled by Clinic Staff',
+    }, { transaction: t });
+
+    const appointmentWithUser = {
+      ...appointment.toJSON(),
+      patient_name: cleanName || user.full_name,
+      email: cleanEmail || user.email,
+      phone: formattedMobile || user.mobile,
+      user,
+    };
+
+    // If an email address is provided, dispatch confirmation email asynchronously
+    if (cleanEmail && !cleanEmail.endsWith('@skinglowclinic.local')) {
+      t.afterCommit(() => {
+        if (appointment.status === 1) {
+          sendAppointmentConfirmed({ appointment: appointmentWithUser, treatment }).catch(() => {});
+        } else {
+          sendAppointmentConfirmation({ appointment: appointmentWithUser, treatment }).catch(() => {});
+        }
+      });
+    }
+
+    return {
+      id: appointment.id,
+      user_id: user.id,
+      patient_name: cleanName || user.full_name,
+      email: cleanEmail || user.email,
+      phone: formattedMobile || user.mobile,
+      preferred_date_time: appointment.preferred_date_time,
+      status: appointment.status,
+      message: appointment.message,
+      admin_notes: appointment.admin_notes,
+      treatment: {
+        id: treatment.id,
+        title: treatment.title,
+        price: treatment.price ?? 0,
+        duration: treatment.duration,
+      },
+      createdAt: appointment.createdAt,
+    };
+  });
 };
 

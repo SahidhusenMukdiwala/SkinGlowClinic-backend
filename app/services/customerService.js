@@ -91,13 +91,10 @@ export const getCustomerById = async (id) => {
     throw error;
   }
 
-  // Fetch appointment history associated with this patient's email or phone
+  // Fetch appointment history associated with this patient account
   const appointments = await Appointment.findAll({
     where: {
-      [Op.or]: [
-        { email: customer.email },
-        { phone: customer.mobile },
-      ],
+      user_id: customer.id,
       is_delete: 0,
     },
     include: [
@@ -110,9 +107,19 @@ export const getCustomerById = async (id) => {
     order: [['preferred_date_time', 'DESC']],
   });
 
+  const formattedAppointments = appointments.map((appt) => {
+    const raw = appt.toJSON();
+    return {
+      ...raw,
+      patient_name: customer.full_name,
+      email: customer.email,
+      phone: customer.mobile,
+    };
+  });
+
   return {
     customer,
-    appointments,
+    appointments: formattedAppointments,
   };
 };
 

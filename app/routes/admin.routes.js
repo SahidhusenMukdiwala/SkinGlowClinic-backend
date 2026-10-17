@@ -14,6 +14,7 @@ import * as blogController from '../controllers/blogController.js';
 import * as settingsController from '../controllers/settingsController.js';
 import * as uploadController from '../controllers/uploadController.js';
 import * as customerController from '../controllers/customerController.js';
+import * as faqController from '../controllers/faqController.js';
 
 import { createCategorySchema, updateCategorySchema } from '../validators/category.validator.js';
 import { createTreatmentSchema, updateTreatmentSchema } from '../validators/treatment.validator.js';
@@ -21,6 +22,8 @@ import { createTestimonialSchema, updateTestimonialSchema } from '../validators/
 import { createBlogSchema, updateBlogSchema } from '../validators/blog.validator.js';
 import { updateSettingsSchema } from '../validators/settings.validator.js';
 import { updateCustomerStatusSchema } from '../validators/customer.validator.js';
+import { createFaqSchema, updateFaqSchema } from '../validators/faq.validator.js';
+import { createAdminAppointmentSchema } from '../validators/appointment.validator.js';
 import { validateIdParam } from '../middleware/validateParams.js';
 
 const router = Router();
@@ -36,6 +39,7 @@ router.get('/dashboard/stats', dashboardController.getStats);
 
 // --- Appointments Management ---
 router.get('/appointments', appointmentController.getAdminAppointments);
+router.post('/appointments', validate(createAdminAppointmentSchema), appointmentController.createAdminAppointment);
 router.get('/appointments/:id', appointmentController.getAppointmentById);
 router.patch('/appointments/:id', appointmentController.updateAppointment);
 router.delete('/appointments/:id', appointmentController.deleteAppointment);
@@ -85,5 +89,12 @@ router.post('/upload', upload.single('image'), uploadController.uploadMedia);
 router.get('/customers', customerController.getAdminCustomers);
 router.get('/customers/:id', customerController.getCustomerById);
 router.patch('/customers/:id/status', validate(updateCustomerStatusSchema), customerController.updateCustomerStatus);
+
+// --- FAQs Management ---
+router.get('/faqs', faqController.getAdminFaqs);
+router.get('/faqs/:id', faqController.getFaqById);
+router.post('/faqs', validate(createFaqSchema), faqController.createFaq);
+router.put('/faqs/:id', validate(updateFaqSchema), faqController.updateFaq);
+router.delete('/faqs/:id', faqController.deleteFaq);
 
 export default router;

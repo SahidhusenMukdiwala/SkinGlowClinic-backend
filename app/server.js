@@ -10,7 +10,7 @@ const cleanExpiredSessions = async () => {
     const expiryThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
     const deletedCount = await SessionMaster.destroy({
       where: {
-        createdAt: { [Op.lt]: expiryThreshold },
+        modifiedAt: { [Op.lt]: expiryThreshold },
       },
     });
     if (deletedCount > 0) {

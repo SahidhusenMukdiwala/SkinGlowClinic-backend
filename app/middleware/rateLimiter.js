@@ -24,13 +24,17 @@ export const adminLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Appointment booking limiter: 5 requests per minute
+// Appointment booking limiter: 10 attempts per 15 minutes keyed on user ID or IP
 export const bookingLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => {
+    return req.user?.id ? `user_${req.user.id}` : (req.ip || 'ip');
+  },
+  validate: { keyGeneratorIpFallback: false },
   message: {
     success: false,
-    message: 'Too many booking attempts. Please wait a minute and try again.',
+    message: 'Too many appointment booking attempts. Please wait a few minutes before trying again.',
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -48,13 +52,25 @@ export const inquiryLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Admin auth limiter: 10 attempts per 15 minutes
+// Admin auth limiter: 10 attempts per 15 minutes (for login and registration)
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: {
     success: false,
     message: 'Too many login attempts. Please try again after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Refresh token limiter: 60 requests per 15 minutes (ensures active multi-tab sessions are not prematurely throttled)
+export const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: {
+    success: false,
+    message: 'Too many session refresh requests. Please wait a moment.',
   },
   standardHeaders: true,
   legacyHeaders: false,

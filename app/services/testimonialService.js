@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Testimonial, Appointment, Treatment, UserMaster } from '../models/index.js';
+import { sequelize, Testimonial, Appointment, Treatment, UserMaster } from '../models/index.js';
 import { uploadBufferToCloudinary } from '../utils/cloudinary.js';
 
 const DEFAULT_PATIENT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
@@ -177,21 +177,7 @@ export const submitCustomerReview = async ({ userId, appointmentId, reviewText, 
     throw error;
   }
 
-  // 3. Check duplicate review for this appointment
-  const existingReview = await Testimonial.findOne({
-    where: {
-      appointment_id: appointmentId,
-      is_delete: 0,
-    },
-  });
-
-  if (existingReview) {
-    const error = new Error('You have already submitted a review for this appointment.');
-    error.statusCode = 409;
-    throw error;
-  }
-
-  // 4. Fetch user details for name & profile_image
+  // 3. Fetch user details for name & profile_image
   const user = await UserMaster.findOne({
     where: { id: userId, is_active: 1 },
   });
@@ -202,19 +188,37 @@ export const submitCustomerReview = async ({ userId, appointmentId, reviewText, 
     throw error;
   }
 
-  // 5. Create testimonial (is_active = 0 for admin moderation)
-  const testimonial = await Testimonial.create({
-    patient_name: user.full_name,
-    patient_image: user.profile_image || DEFAULT_PATIENT_AVATAR,
-    review_text: reviewText.trim(),
-    rating: parseInt(rating, 10),
-    user_id: user.id,
-    appointment_id: appointment.id,
-    is_active: 0, // Pending admin approval
-    is_delete: 0,
-  });
+  // 4. Atomically verify no duplicate review exists and insert in transaction
+  return await sequelize.transaction(async (t) => {
+    const existingReview = await Testimonial.findOne({
+      where: {
+        appointment_id: appointmentId,
+        is_delete: 0,
+      },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
 
-  return testimonial;
+    if (existingReview) {
+      const error = new Error('You have already submitted a review for this appointment.');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    // 5. Create testimonial (is_active = 0 for admin moderation)
+    const testimonial = await Testimonial.create({
+      patient_name: user.full_name,
+      patient_image: user.profile_image || DEFAULT_PATIENT_AVATAR,
+      review_text: reviewText.trim(),
+      rating: parseInt(rating, 10),
+      user_id: user.id,
+      appointment_id: appointment.id,
+      is_active: 0, // Pending admin approval
+      is_delete: 0,
+    }, { transaction: t });
+
+    return testimonial;
+  });
 };
 
 /**

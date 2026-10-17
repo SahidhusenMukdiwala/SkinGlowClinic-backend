@@ -47,4 +47,14 @@ export const UserMaster = sequelize.define('user_master', {
   timestamps: true,
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  indexes: [
+    {
+      name: 'idx_user_mobile',
+      fields: ['mobile'],
+    },
+    {
+      name: 'idx_user_email',
+      fields: ['email'],
+    },
+  ],
 });

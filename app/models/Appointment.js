@@ -42,4 +42,14 @@ export const Appointment = sequelize.define('appointments', {
   timestamps: true,
   createdAt: 'createdAt',
   updatedAt: 'modifiedAt', // Explicitly maps to modifiedAt in DB schema
+  indexes: [
+    {
+      name: 'idx_appointment_slot_status',
+      fields: ['preferred_date_time', 'status', 'is_delete'],
+    },
+    {
+      name: 'idx_appointment_user_status',
+      fields: ['user_id', 'status', 'is_delete'],
+    },
+  ],
 });

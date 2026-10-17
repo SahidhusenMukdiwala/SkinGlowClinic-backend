@@ -21,6 +21,11 @@ export const login = async (req, res, next) => {
 
 export const register = async (req, res, next) => {
   try {
+    const { full_name, email, mobile, password } = req.body;
+
+    // 1. Validate uniqueness before performing expensive Cloudinary upload
+    await authService.validateRegistrationUniqueness({ email, mobile });
+
     if (!req.file || !req.file.buffer) {
       const error = new Error('Profile image is required for registration.');
       error.statusCode = 400;
@@ -29,8 +34,6 @@ export const register = async (req, res, next) => {
 
     const uploadRes = await uploadBufferToCloudinary(req.file.buffer, 'skinglowclinic/profiles');
     const profile_image = uploadRes.secure_url;
-
-    const { full_name, email, mobile, password } = req.body;
 
     const result = await authService.registerCustomer({
       full_name,

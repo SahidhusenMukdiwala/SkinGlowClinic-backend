@@ -5,6 +5,7 @@ import testimonialRoutes from './testimonial.routes.js';
 import inquiryRoutes from './inquiry.routes.js';
 import categoryRoutes from './category.routes.js';
 import blogRoutes from './blog.routes.js';
+import faqRoutes from './faq.routes.js';
 import authRoutes from './auth.routes.js';
 
 import appointmentRoutes from './appointment.routes.js';
@@ -21,6 +22,7 @@ router.use('/settings', settingsRoutes);
 router.use('/testimonials', testimonialRoutes);
 router.use('/inquiries', inquiryRoutes);
 router.use('/blogs', blogRoutes);
+router.use('/faqs', faqRoutes);
 
 // Auth & Admin Routes
 router.use('/auth', authRoutes);

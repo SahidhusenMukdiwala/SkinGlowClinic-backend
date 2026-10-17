@@ -40,7 +40,14 @@ const getFromEmail = (clinicName = 'SkinGlow Clinic') => {
 };
 
 export const getDoctorEmail = () => {
-  return process.env.Doc_EMAIL;
+  return (
+    env.DOC_EMAIL ||
+    env.SMTP?.DOC_EMAIL ||
+    env.SMTP?.CLINIC_NOTIFICATION_EMAIL ||
+    process.env.Doc_EMAIL ||
+    process.env.DOC_EMAIL ||
+    env.SMTP?.USER
+  );
 };
 
 const getClinicEmail = () => getDoctorEmail();

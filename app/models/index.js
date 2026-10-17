@@ -8,6 +8,7 @@ import { Inquiry } from './Inquiry.js';
 import { Treatment } from './Treatment.js';
 import { Appointment } from './Appointment.js';
 import { Category } from './Category.js';
+import { Faq } from './Faq.js';
 
 // Associations
 UserMaster.hasMany(SessionMaster, { foreignKey: 'user_id', as: 'sessions', onDelete: 'CASCADE' });
@@ -42,4 +43,5 @@ export {
   Category,
   Treatment,
   Appointment,
+  Faq,
 };

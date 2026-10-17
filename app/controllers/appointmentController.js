@@ -69,3 +69,12 @@ export const deleteAppointment = async (req, res, next) => {
   }
 };
 
+export const createAdminAppointment = async (req, res, next) => {
+  try {
+    const appointment = await appointmentService.createAdminAppointment(req.body);
+    return successResponse(res, appointment, 'Appointment scheduled successfully.', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+

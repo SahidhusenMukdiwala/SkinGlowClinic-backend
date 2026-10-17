@@ -77,6 +77,13 @@ export const checkRole = (...allowedRoles) => {
     }
 
     if (!targetRoles.includes(req.user.role)) {
+      if (targetRoles.includes(ROLES.CUSTOMER) && !targetRoles.includes(ROLES.ADMIN) && !targetRoles.includes(ROLES.SUPER_ADMIN)) {
+        return errorResponse(
+          res,
+          'Administrative and staff accounts cannot self-book patient consultations via the public portal. Please use the Admin Panel to schedule appointments for patients.',
+          403
+        );
+      }
       return errorResponse(res, 'Access denied. You do not have permission to access this resource.', 403);
     }
 

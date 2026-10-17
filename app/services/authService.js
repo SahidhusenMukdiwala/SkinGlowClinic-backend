@@ -16,9 +16,11 @@ export const loginAdmin = async ({ identifier, password, ip }) => {
   ];
 
   if (digitsOnly.length >= 10) {
-    whereConditions.push({
-      mobile: { [Op.like]: `%${digitsOnly.slice(-10)}%` },
-    });
+    const last10 = digitsOnly.slice(-10);
+    whereConditions.push({ mobile: last10 });
+    whereConditions.push({ mobile: `+91${last10}` });
+    whereConditions.push({ mobile: `+91 ${last10}` });
+    whereConditions.push({ mobile: { [Op.like]: `%${last10}%` } });
   }
 
   const user = await UserMaster.findOne({
@@ -86,34 +88,50 @@ export const loginAdmin = async ({ identifier, password, ip }) => {
   };
 };
 
-export const registerCustomer = async ({ full_name, email, mobile, password, profile_image, ip }) => {
+export const validateRegistrationUniqueness = async ({ email, mobile }) => {
   const cleanEmail = (email || '').trim().toLowerCase();
   const cleanMobile = (mobile || '').trim();
   const digitsOnly = cleanMobile.replace(/\D/g, '');
 
-  // Check if email already exists
-  const existingEmail = await UserMaster.findOne({
-    where: { email: cleanEmail },
-  });
-  if (existingEmail) {
-    const error = new Error('An account with this email address already exists.');
-    error.statusCode = 409;
-    throw error;
+  if (cleanEmail) {
+    const existingEmail = await UserMaster.findOne({
+      where: { email: cleanEmail },
+      attributes: ['id'],
+    });
+    if (existingEmail) {
+      const error = new Error('An account with this email address already exists.');
+      error.statusCode = 409;
+      throw error;
+    }
   }
 
-  // Check if mobile already exists
-  const mobileWhere = [{ mobile: cleanMobile }];
-  if (digitsOnly.length >= 10) {
-    mobileWhere.push({ mobile: { [Op.like]: `%${digitsOnly.slice(-10)}%` } });
+  if (cleanMobile) {
+    const mobileWhere = [{ mobile: cleanMobile }];
+    if (digitsOnly.length >= 10) {
+      const last10 = digitsOnly.slice(-10);
+      mobileWhere.push({ mobile: last10 });
+      mobileWhere.push({ mobile: `+91${last10}` });
+      mobileWhere.push({ mobile: `+91 ${last10}` });
+      mobileWhere.push({ mobile: { [Op.like]: `%${last10}%` } });
+    }
+    const existingMobile = await UserMaster.findOne({
+      where: { [Op.or]: mobileWhere },
+      attributes: ['id'],
+    });
+    if (existingMobile) {
+      const error = new Error('An account with this mobile number already exists.');
+      error.statusCode = 409;
+      throw error;
+    }
   }
-  const existingMobile = await UserMaster.findOne({
-    where: { [Op.or]: mobileWhere },
-  });
-  if (existingMobile) {
-    const error = new Error('An account with this mobile number already exists.');
-    error.statusCode = 409;
-    throw error;
-  }
+};
+
+export const registerCustomer = async ({ full_name, email, mobile, password, profile_image, ip }) => {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanMobile = (mobile || '').trim();
+
+  // Validate uniqueness
+  await validateRegistrationUniqueness({ email: cleanEmail, mobile: cleanMobile });
 
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 12);

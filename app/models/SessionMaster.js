@@ -28,4 +28,14 @@ export const SessionMaster = sequelize.define('session_master', {
   timestamps: true,
   createdAt: 'createdAt',
   updatedAt: 'modifiedAt', // Explicitly maps to modifiedAt in DB schema
+  indexes: [
+    {
+      name: 'idx_session_user_token',
+      fields: ['user_id', 'access_token'],
+    },
+    {
+      name: 'idx_session_refresh',
+      fields: ['refresh_token'],
+    },
+  ],
 });
